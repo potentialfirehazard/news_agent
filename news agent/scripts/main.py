@@ -8,6 +8,11 @@ import schedule # for scheduling fetches 3 times daily
 import time # to sleep the program when not running
 import csv # for parsing the keyword filter set
 import PTT_scraper # getting the script for the HTML scraper for the PTT stock board
+from newspaper import Article # for parsing the body text of articles
+from newspaper import Config # for configuring the Article object
+from newspaper import ArticleException # for handling exceptions in the Article object
+from bs4 import BeautifulSoup # for HTML parsing
+import requests # to get the HTML of websites
 
 # list of urls and source for higher quality websites, indexes of url and source correspond
 high_priority_url_list = ["https://news.cnyes.com/rss/v1/news/category/tw_stock", "https://news.cnyes.com/rss/v1/news/category/all", "https://news.cnyes.com/rss/v1/news/category/headline", "https://www.moneydj.com/kmdj/RssCenter.aspx?svc=NW&fno=1&arg=X0000000", "https://tw.stock.yahoo.com/rss?category=tw-market"]
@@ -34,34 +39,100 @@ def fetch(url, title):
         for i in range(len(NewsFeed.entries)):
             global counter
 
+            article_link = NewsFeed.entries[i].link
+            article_title = NewsFeed.entries[i].title
+            article_timestamp = NewsFeed.entries[i].published
+
             # stops fetching data from articles if the 350 limit is reached
             if counter >= 350:
                 break
+
+            text = ""
+
+            match title:
+                case "鉅亨網 (Anue)":
+                    try:
+                        response = requests.get(article_link)
+                    except:
+                        continue
+
+                    html_content = response.text
+
+                    soup = BeautifulSoup(html_content, "xml")
+
+                    article = soup.find(id = "article-container")
+                    paragraphs = article.find_all("p")
+
+                    
+                    for i in paragraphs:
+                        text += i.get_text()
+                case "MoneyDJ 理財網":
+                    article = Article(article_link)
+                    article.download()
+                    article.parse
+                    text = article.text
+                case "Yahoo 奇摩股市":
+                    try:
+                        response = requests.get(article_link)
+                    except:
+                        continue
+
+                    html_content = response.text
+
+                    soup = BeautifulSoup(html_content, "xml")
+
+                    article = soup.find("article")
+                    paragraphs = article.find_all("p")
+
+                    
+                    for i in paragraphs:
+                        text += i.get_text()
+                case "商業週刊":
+                    article = Article(article_link)
+                    article.download()
+                    article.parse
+                    text = article.text
+                case "TechOrange 科技報橘":
+                    article = Article(article_link)
+                    article.download()
+                    article.parse
+                    text = article.text  
+                case "Inside (科技媒體)":
+                    article = Article(article_link)
+                    article.download()
+                    article.parse
+                    text = article.text
+                case "中央社財經 (CNA)":
+                    article = Article(article_link)
+                    article.download()
+                    article.parse
+                    text = article.text
             
-            article_keywords = []
+            article_keywords = [] # list to hold the keywords found in the article
             
             # loops through the keyword filter set
+            file.seek(0)
             csv_reader = csv.reader(file)
             for row in csv_reader:
                 if row: #check if the row isn't empty
                     keyword = row[0]
 
                     # adds the article keyword if one is found
-                    if keyword in NewsFeed.entries[i].title or keyword in NewsFeed.entries[i].description:
+                    if keyword in article_title or keyword in text:
                         article_keywords.append(keyword)
 
             # creates the file to be stored
-            article = {
-                "title" : NewsFeed.entries[i].title,
+            data = {
+                "title" : article_title,
                 "source" : title,
-                "body" : NewsFeed.entries[i].description,
-                "url" : NewsFeed.entries[i].link,
-                "timestamp" : NewsFeed.entries[i].published,
+                "body" : article.text,
+                "url" : article_link,
+                "timestamp" : article_timestamp,
                 "keywords" : article_keywords
             }
 
             # stores the article
-            database.article_info.insert_one(article) # replace "article_info" with the name of the desired collection
+            database.article_info.insert_one(data) # replace "article_info" with the name of the desired collection
             counter += 1
 
     client.close() # closes MongoClient
