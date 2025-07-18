@@ -1,0 +1,301 @@
+Keyword,Category
+政策,Causal Trigger
+法案,Causal Trigger
+修法,Causal Trigger
+宣布,Causal Trigger
+實施,Causal Trigger
+推動,Causal Trigger
+取消,Causal Trigger
+調整,Causal Trigger
+修正,Causal Trigger
+升息,Causal Trigger
+降息,Causal Trigger
+通膨,Causal Trigger
+通縮,Causal Trigger
+就業,Causal Trigger
+失業,Causal Trigger
+需求,Causal Trigger
+供給,Causal Trigger
+價格,Causal Trigger
+成本,Causal Trigger
+產能,Causal Trigger
+投資,Causal Trigger
+貿易,Causal Trigger
+制裁,Causal Trigger
+推升,Causal Trigger
+壓抑,Causal Trigger
+導致,Causal Trigger
+促使,Causal Trigger
+影響,Causal Trigger
+引發,Causal Trigger
+帶動,Causal Trigger
+帶來,Causal Trigger
+造成,Causal Trigger
+意味,Causal Trigger
+代表,Causal Trigger
+反映,Causal Trigger
+政策相關,Causal Trigger
+法案相關,Causal Trigger
+修法相關,Causal Trigger
+宣布相關,Causal Trigger
+實施相關,Causal Trigger
+推動相關,Causal Trigger
+取消相關,Causal Trigger
+調整相關,Causal Trigger
+修正相關,Causal Trigger
+升息相關,Causal Trigger
+降息相關,Causal Trigger
+通膨相關,Causal Trigger
+通縮相關,Causal Trigger
+就業相關,Causal Trigger
+失業相關,Causal Trigger
+需求相關,Causal Trigger
+供給相關,Causal Trigger
+價格相關,Causal Trigger
+成本相關,Causal Trigger
+產能相關,Causal Trigger
+投資相關,Causal Trigger
+貿易相關,Causal Trigger
+制裁相關,Causal Trigger
+推升相關,Causal Trigger
+壓抑相關,Causal Trigger
+導致相關,Causal Trigger
+促使相關,Causal Trigger
+影響相關,Causal Trigger
+引發相關,Causal Trigger
+帶動相關,Causal Trigger
+帶來相關,Causal Trigger
+造成相關,Causal Trigger
+意味相關,Causal Trigger
+代表相關,Causal Trigger
+反映相關,Causal Trigger
+政策相關,Causal Trigger
+法案相關,Causal Trigger
+修法相關,Causal Trigger
+宣布相關,Causal Trigger
+實施相關,Causal Trigger
+推動相關,Causal Trigger
+取消相關,Causal Trigger
+調整相關,Causal Trigger
+修正相關,Causal Trigger
+升息相關,Causal Trigger
+降息相關,Causal Trigger
+通膨相關,Causal Trigger
+通縮相關,Causal Trigger
+就業相關,Causal Trigger
+失業相關,Causal Trigger
+需求相關,Causal Trigger
+供給相關,Causal Trigger
+價格相關,Causal Trigger
+成本相關,Causal Trigger
+產能相關,Causal Trigger
+投資相關,Causal Trigger
+貿易相關,Causal Trigger
+制裁相關,Causal Trigger
+推升相關,Causal Trigger
+壓抑相關,Causal Trigger
+導致相關,Causal Trigger
+促使相關,Causal Trigger
+影響相關,Causal Trigger
+引發相關,Causal Trigger
+帶動相關,Causal Trigger
+上漲,Market Impact
+下跌,Market Impact
+漲停,Market Impact
+跌停,Market Impact
+反彈,Market Impact
+修正,Market Impact
+創高,Market Impact
+創低,Market Impact
+爆量,Market Impact
+利多,Market Impact
+利空,Market Impact
+利率變動,Market Impact
+買超,Market Impact
+賣超,Market Impact
+外資,Market Impact
+自營商,Market Impact
+法人,Market Impact
+投信,Market Impact
+佈局,Market Impact
+持股,Market Impact
+加碼,Market Impact
+減碼,Market Impact
+報告,Market Impact
+調升評等,Market Impact
+調降評等,Market Impact
+目標價,Market Impact
+財報,Market Impact
+營收,Market Impact
+淨利,Market Impact
+虧損,Market Impact
+併購,Market Impact
+增資,Market Impact
+減資,Market Impact
+除息,Market Impact
+除權,Market Impact
+股利,Market Impact
+上漲相關,Market Impact
+下跌相關,Market Impact
+漲停相關,Market Impact
+跌停相關,Market Impact
+反彈相關,Market Impact
+修正相關,Market Impact
+創高相關,Market Impact
+創低相關,Market Impact
+爆量相關,Market Impact
+利多相關,Market Impact
+利空相關,Market Impact
+利率變動相關,Market Impact
+買超相關,Market Impact
+賣超相關,Market Impact
+外資相關,Market Impact
+自營商相關,Market Impact
+法人相關,Market Impact
+投信相關,Market Impact
+佈局相關,Market Impact
+持股相關,Market Impact
+加碼相關,Market Impact
+減碼相關,Market Impact
+報告相關,Market Impact
+調升評等相關,Market Impact
+調降評等相關,Market Impact
+目標價相關,Market Impact
+財報相關,Market Impact
+營收相關,Market Impact
+淨利相關,Market Impact
+虧損相關,Market Impact
+併購相關,Market Impact
+增資相關,Market Impact
+減資相關,Market Impact
+除息相關,Market Impact
+除權相關,Market Impact
+股利相關,Market Impact
+上漲相關,Market Impact
+下跌相關,Market Impact
+漲停相關,Market Impact
+跌停相關,Market Impact
+反彈相關,Market Impact
+修正相關,Market Impact
+創高相關,Market Impact
+創低相關,Market Impact
+爆量相關,Market Impact
+利多相關,Market Impact
+利空相關,Market Impact
+利率變動相關,Market Impact
+買超相關,Market Impact
+賣超相關,Market Impact
+外資相關,Market Impact
+自營商相關,Market Impact
+法人相關,Market Impact
+投信相關,Market Impact
+佈局相關,Market Impact
+持股相關,Market Impact
+加碼相關,Market Impact
+減碼相關,Market Impact
+報告相關,Market Impact
+調升評等相關,Market Impact
+調降評等相關,Market Impact
+目標價相關,Market Impact
+財報相關,Market Impact
+營收相關,Market Impact
+台積電,High Impact Entity
+聯發科,High Impact Entity
+鴻海,High Impact Entity
+大立光,High Impact Entity
+中鋼,High Impact Entity
+中華電,High Impact Entity
+富邦金,High Impact Entity
+國泰金,High Impact Entity
+元大金,High Impact Entity
+美國聯準會,High Impact Entity
+FED,High Impact Entity
+FOMC,High Impact Entity
+OPEC,High Impact Entity
+WTI,High Impact Entity
+布蘭特,High Impact Entity
+中共,High Impact Entity
+拜登,High Impact Entity
+川普,High Impact Entity
+美國財政部,High Impact Entity
+財政部,High Impact Entity
+央行,High Impact Entity
+金管會,High Impact Entity
+證交所,High Impact Entity
+櫃買中心,High Impact Entity
+國安基金,High Impact Entity
+主計總處,High Impact Entity
+經濟部,High Impact Entity
+科技部,High Impact Entity
+台積電相關,High Impact Entity
+聯發科相關,High Impact Entity
+鴻海相關,High Impact Entity
+大立光相關,High Impact Entity
+中鋼相關,High Impact Entity
+中華電相關,High Impact Entity
+富邦金相關,High Impact Entity
+國泰金相關,High Impact Entity
+元大金相關,High Impact Entity
+美國聯準會相關,High Impact Entity
+FED相關,High Impact Entity
+FOMC相關,High Impact Entity
+OPEC相關,High Impact Entity
+WTI相關,High Impact Entity
+布蘭特相關,High Impact Entity
+中共相關,High Impact Entity
+拜登相關,High Impact Entity
+川普相關,High Impact Entity
+美國財政部相關,High Impact Entity
+財政部相關,High Impact Entity
+央行相關,High Impact Entity
+金管會相關,High Impact Entity
+證交所相關,High Impact Entity
+櫃買中心相關,High Impact Entity
+國安基金相關,High Impact Entity
+主計總處相關,High Impact Entity
+經濟部相關,High Impact Entity
+科技部相關,High Impact Entity
+台積電相關,High Impact Entity
+聯發科相關,High Impact Entity
+鴻海相關,High Impact Entity
+大立光相關,High Impact Entity
+中鋼相關,High Impact Entity
+中華電相關,High Impact Entity
+富邦金相關,High Impact Entity
+國泰金相關,High Impact Entity
+元大金相關,High Impact Entity
+美國聯準會相關,High Impact Entity
+FED相關,High Impact Entity
+FOMC相關,High Impact Entity
+OPEC相關,High Impact Entity
+WTI相關,High Impact Entity
+布蘭特相關,High Impact Entity
+中共相關,High Impact Entity
+拜登相關,High Impact Entity
+川普相關,High Impact Entity
+美國財政部相關,High Impact Entity
+財政部相關,High Impact Entity
+央行相關,High Impact Entity
+金管會相關,High Impact Entity
+證交所相關,High Impact Entity
+櫃買中心相關,High Impact Entity
+國安基金相關,High Impact Entity
+主計總處相關,High Impact Entity
+經濟部相關,High Impact Entity
+科技部相關,High Impact Entity
+台積電相關,High Impact Entity
+聯發科相關,High Impact Entity
+鴻海相關,High Impact Entity
+大立光相關,High Impact Entity
+中鋼相關,High Impact Entity
+中華電相關,High Impact Entity
+富邦金相關,High Impact Entity
+國泰金相關,High Impact Entity
+元大金相關,High Impact Entity
+美國聯準會相關,High Impact Entity
+FED相關,High Impact Entity
+FOMC相關,High Impact Entity
+OPEC相關,High Impact Entity
+WTI相關,High Impact Entity
+布蘭特相關,High Impact Entity
+中共相關,High Impact Entity
