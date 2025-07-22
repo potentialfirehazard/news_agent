@@ -13,6 +13,10 @@ from newspaper import Config # for configuring the Article object
 from newspaper import ArticleException # for handling exceptions in the Article object
 from bs4 import BeautifulSoup # for HTML parsing
 import requests # to get the HTML of websites
+import deduplication # getting method for deduplication
+
+connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
+database_name = "news_info" # replace with wanted database name
 
 # list of urls and source for higher quality websites, indexes of url and source correspond
 high_priority_url_list = ["https://news.cnyes.com/rss/v1/news/category/tw_stock", "https://www.moneydj.com/kmdj/RssCenter.aspx?svc=NW&fno=1&arg=X0000000", "https://tw.stock.yahoo.com/rss?category=tw-market", "https://news.cnyes.com/rss/v1/news/category/all", "https://news.cnyes.com/rss/v1/news/category/headline"]
@@ -26,9 +30,12 @@ counter = 0 # counts the number of articles fetched
 
 # fetches articles from one source
 def fetch(url, title):
+    global connection_string
+    global database_name
+
     # connects to the MongoDB database
-    client = MongoClient("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/") # replace string with the wanted connection string
-    database = client["news_info"] # replace string with the name of the wanted database
+    client = MongoClient(connection_string)
+    database = client[database_name]
 
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
 
@@ -146,8 +153,9 @@ def fetch(url, title):
                     # makes the text the RSS description if the article cannot be parsed      
                     else:
                         text = NewsFeed.entries[i].description
-            
-            #article_keywords = [] # list to hold the keywords found in the article
+
+
+            article_keywords = [] # list to hold the keywords found in the article
             
             # loops through the keyword filter set
             file.seek(0)
@@ -160,8 +168,7 @@ def fetch(url, title):
                     # continues adding the article if a keyword is found
                     if keyword in article_title or keyword in text:
                         keyword_found = True
-                        break
-                        #article_keywords.append(keyword)
+                        article_keywords.append(row)
             
             # skips the article if no keywords are found
             if keyword_found == False:
@@ -174,7 +181,7 @@ def fetch(url, title):
                 "body" : text,
                 "url" : article_link,
                 "timestamp" : article_timestamp,
-                #"keywords" : article_keywords
+                "keywords" : article_keywords
             }
 
             # stores the article
@@ -210,9 +217,10 @@ def daily_fetch():
         num = 350 - counter
         PTT_scraper.fetch(num)
 
-    print(counter)
+    # runs deduplication logic using tfidf
+    deduplication.tfidf_comparison(connection_string, database_name, 1)
 
-#daily_fetch()
+daily_fetch()
 # schedules the daily fetch for the three times each day, in Taiwan's time zone
 schedule.every().day.at("07:30", "Asia/Hong_Kong").do(daily_fetch)
 schedule.every().day.at("13:30", "Asia/Hong_Kong").do(daily_fetch)
