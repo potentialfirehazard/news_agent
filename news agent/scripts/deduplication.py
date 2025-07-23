@@ -48,13 +48,19 @@ def tfidf_comparison(connection_string, database_name, threshold):
     # creates a matrix of each text vectorized
     tfidf_matrix = vectorizer.fit_transform(cleaned_texts)
 
+    duplicate_article_ids = [] # stores ids of articles marked as duplicates
+
     # loops through indexes of each stored text
     for index in range((len(cleaned_texts))):
+        
+        # skips the article if it has been marked as a duplicate
+        if ids[index] in duplicate_article_ids:
+            continue
+
         # creates a cosine similarity matrix between the current text and the rest of the texts
         similarities = cosine_similarity(tfidf_matrix[index][0], tfidf_matrix)
-        
-        duplicate_article_ids = [] # stores ids of articles marked as duplicates
 
+        counter = 0
         # loops through each index in the cosine similarity matrix
         for score_index in range((len(similarities[0]))): # using similarities[0] b/c there is only one row in the matrix
             
@@ -64,21 +70,18 @@ def tfidf_comparison(connection_string, database_name, threshold):
                 # finds the id of the duplicate and adds it to the list of duplicates
                 duplicate_id = ids[score_index]
                 duplicate_article_ids.append(duplicate_id)
-                
-                #print("1 found at " + str(ids[score_index]))
-                #doc = database.article_info.find_one({"_id" : duplicate_id})
-                #title = doc["title"]
-                #print(title)
+                counter += 1
+            
+        # removes one of the duplicates so one instance of the article is preserved
+        if counter > 0:
+            print(len(duplicate_article_ids) - counter)
+            duplicate_article_ids.pop((len(duplicate_article_ids) - counter))
 
-        # loops for each duplicate found, ignoring the first one b/c it is a comparison with itself
-        for i in range(1, (len(duplicate_article_ids))):
-                print("deleting duplicate" + str(duplicate_article_ids[i]))
-                doc = database.article_info.find_one({"_id" : duplicate_article_ids[i]})
-                if doc != None:
-                    title = doc["title"]
-                    print(title)
-                # deletes the duplicate from the database
-                database.article_info.delete_one({"_id" : duplicate_article_ids[i]})    
+    # deletes every id marked to be deleted
+    for id in duplicate_article_ids:
+
+        database.article_info.delete_one({"_id" : id})
+        print("deleting duplicate " + str(id))
     
     # closes MongoClient
     client.close()
