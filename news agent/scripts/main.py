@@ -218,7 +218,7 @@ def daily_fetch():
         PTT_scraper.fetch(num)
 
     # runs deduplication logic using tfidf
-    deduplication.tfidf_comparison(connection_string, database_name, 1)
+    #deduplication.tfidf_comparison(connection_string, database_name, 1)
 
 daily_fetch()
 # schedules the daily fetch for the three times each day, in Taiwan's time zone
