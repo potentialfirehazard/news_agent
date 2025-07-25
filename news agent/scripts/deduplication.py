@@ -92,6 +92,7 @@ def sbert_comparison(connection_string, database_name, threshold):
     
     # creates a matrix of each text vectorized
     vectorized_docs = vectorizer.encode(cleaned_texts)
+    print(vectorized_docs)
 
     duplicate_article_ids = [] # stores ids of articles marked as duplicates
 
@@ -101,16 +102,20 @@ def sbert_comparison(connection_string, database_name, threshold):
         # skips the article if it has been marked as a duplicate
         if ids[index] in duplicate_article_ids:
             continue
+        
+        current_doc = vectorized_docs[index]
 
         # creates a cosine similarity matrix between the current text and the rest of the texts
-        similarities = cosine_similarity(vectorized_docs[index], vectorized_docs)
+        similarities = cosine_similarity(current_doc.reshape(1, -1), vectorized_docs)
+        print(similarities)
 
         counter = 0
         # loops through each index in the cosine similarity matrix
-        for score_index in range((len(similarities))):
+        for score_index in range((len(similarities[0]))):
             
             # checks if the similarity index is at or above the threshold
-            if similarities[score_index] >= threshold:
+            if similarities[0][score_index] >= threshold:
+                print("duplicate found")
                 
                 # finds the id of the duplicate and adds it to the list of duplicates
                 duplicate_id = ids[score_index]
@@ -131,4 +136,4 @@ def sbert_comparison(connection_string, database_name, threshold):
     # closes MongoClient
     client.close()
 
-    sbert_comparison(connection_string, database_name, 1)
+sbert_comparison("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/", "news_info", 1)
