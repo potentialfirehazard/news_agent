@@ -12,9 +12,8 @@ def clean(document):
     return cleaned_doc
 
 # removes all documents considered duplicates from the MongoDB database w/ td-idf logic
-def tfidf_comparison(connection_string, database_name, threshold):
+def tfidf_comparison(client, database_name, threshold):
     # connects to the database
-    client = MongoClient(connection_string)
     database = client[database_name]
     vectorizer = TfidfVectorizer() # creates a vectorizer for the document
     
@@ -72,9 +71,8 @@ def tfidf_comparison(connection_string, database_name, threshold):
     client.close()
 
 # removes all documents considered duplicates with sbert
-def sbert_comparison(connection_string, database_name, threshold):
+def sbert_comparison(client, database_name, threshold):
     # connects to the database
-    client = MongoClient(connection_string)
     database = client[database_name]
     vectorizer = SentenceTransformer("all-MiniLM-L6-v2") # creates a vectorizer for the document
     
@@ -132,8 +130,5 @@ def sbert_comparison(connection_string, database_name, threshold):
 
         database.article_info.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
-    
-    # closes MongoClient
-    client.close()
 
-sbert_comparison("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/", "news_info", 1)
+#sbert_comparison("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/", "news_info", 1)

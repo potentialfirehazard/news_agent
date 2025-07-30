@@ -8,12 +8,15 @@ import schedule # for scheduling fetches 3 times daily
 import time # to sleep the program when not running
 import csv # for parsing the keyword filter set
 import PTT_scraper # getting the script for the HTML scraper for the PTT stock board
-from newspaper import Article # for parsing the body text of articles
-from newspaper import Config # for configuring the Article object
-from newspaper import ArticleException # for handling exceptions in the Article object
+#from newspaper import Article # for parsing the body text of articles
+#from newspaper import Config # for configuring the Article object
+#from newspaper import ArticleException # for handling exceptions in the Article object
 from bs4 import BeautifulSoup # for HTML parsing
 import requests # to get the HTML of websites
-import deduplication # getting method for deduplication
+print("importing deduplication")
+import deduplication # getting methods for deduplication
+print("importing sentiment analysis")
+import sentiment_analysis # getting methods for sentiment analysis
 
 connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
 database_name = "news_info" # replace with wanted database name
@@ -29,12 +32,10 @@ lower_priority_source_list = ["商業週刊", "TechOrange 科技報橘", "Inside
 counter = 0 # counts the number of articles fetched
 
 # fetches articles from one source
-def fetch(url, title):
-    global connection_string
+def fetch(client, url, title):
     global database_name
 
     # connects to the MongoDB database
-    client = MongoClient(connection_string)
     database = client[database_name]
 
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
@@ -189,19 +190,22 @@ def fetch(url, title):
             counter += 1
             print(article_title + " from " + title + " done")
 
-    client.close() # closes MongoClient
-
 # fetches 350 articles
 def daily_fetch():
     global counter
+    global connection_string
+    global database_name
+    # connects to MongoDB
+    client = MongoClient(connection_string)
 
     # fetches articles from high priority websites w/ the 350 article limit
     index = 0
     while counter <= 350:
+        print("loop iterated")
         # breaks out of the loop if every website has been visited
         if index >= len(high_priority_url_list):
             break
-        fetch(high_priority_url_list[index], high_priority_source_list[index])
+        fetch(client, high_priority_url_list[index], high_priority_source_list[index])
         index += 1
     
     # fetches articles from lower priority websites w/ the 350 article limit
@@ -209,7 +213,7 @@ def daily_fetch():
     while counter <= 350:
         if index >= len(lower_priority_url_list):
             break
-        fetch(lower_priority_url_list[index], lower_priority_source_list[index])
+        fetch(client, lower_priority_url_list[index], lower_priority_source_list[index])
         index += 1
     
     # fetches the rest of the 350 articles from the PTT stock board
@@ -218,8 +222,12 @@ def daily_fetch():
         PTT_scraper.fetch(num)
 
     # runs deduplication logic using tfidf
-    #deduplication.tfidf_comparison(connection_string, database_name, 1)
+    deduplication.tfidf_comparison(client, database_name, 1)
+    sentiment_analysis.analyze(client, database_name)
 
+    client.close()
+
+print("fetching")
 daily_fetch()
 # schedules the daily fetch for the three times each day, in Taiwan's time zone
 schedule.every().day.at("07:30", "Asia/Hong_Kong").do(daily_fetch)
