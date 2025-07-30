@@ -1,6 +1,6 @@
 '''This program will fetch title, source, body, url, timestamp, and keywords from articles, fetching 350 at a time, 3 times daily.
 Data is obtained primarily through RSS parsing, and then web scraping with HTML. The data obtained is uploaded
-to MongoDB.'''
+to MongoDB. '''
 
 import feedparser # for RSS parsing
 from pymongo import MongoClient # for uploading data to MongoDB
@@ -13,10 +13,11 @@ import PTT_scraper # getting the script for the HTML scraper for the PTT stock b
 #from newspaper import ArticleException # for handling exceptions in the Article object
 from bs4 import BeautifulSoup # for HTML parsing
 import requests # to get the HTML of websites
+print("importing sentiment_analysis")
+import sentiment_analysis
 print("importing deduplication")
-import deduplication # getting methods for deduplication
-print("importing sentiment analysis")
-import sentiment_analysis # getting methods for sentiment analysis
+import deduplication
+
 
 connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
 database_name = "news_info" # replace with wanted database name
@@ -41,15 +42,15 @@ def fetch(client, url, title):
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
 
     # opens the keyword filter file
-    with open("news agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
+    with open("news_agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
 
         # loops through each entry in the RSS feed
-        for i in range(len(NewsFeed.entries)):
+        for entry in NewsFeed.entries:
             global counter
 
-            article_link = NewsFeed.entries[i].link
-            article_title = NewsFeed.entries[i].title
-            article_timestamp = NewsFeed.entries[i].published
+            article_link = entry.link
+            article_title = entry.title
+            article_timestamp = entry.published
 
             # stops fetching data from articles if the 350 limit is reached
             if counter >= 350:
@@ -81,7 +82,7 @@ def fetch(client, url, title):
                             text += i.get_text()
                     # makes the text the RSS description if the article cannot be parsed       
                     else:
-                        text = NewsFeed.entries[i].description
+                        text = entry.description
 
                 case "鉅亨網 (Anue)":
                     # skips the article if an error occurs (infrequent, should not impact the number of articles retrieved)
@@ -105,7 +106,7 @@ def fetch(client, url, title):
                             text += i.get_text() 
                     # makes the text the RSS description if the article cannot be parsed         
                     else:
-                        text = NewsFeed.entries[i].description
+                        text = entry.description
                 
                 case "Inside (科技媒體)":
                     # skips the article if an error occurs (infrequent, should not impact the number of articles retrieved)
@@ -129,7 +130,7 @@ def fetch(client, url, title):
                             text += i.get_text()    
                     # makes the text the RSS description if the article cannot be parsed      
                     else:
-                        text = NewsFeed.entries[i].description
+                        text = entry.description
 
                 case "中央社財經 (CNA)":
                     # skips the article if an error occurs (infrequent, should not impact the number of articles retrieved)
@@ -153,7 +154,7 @@ def fetch(client, url, title):
                             text += i.get_text()    
                     # makes the text the RSS description if the article cannot be parsed      
                     else:
-                        text = NewsFeed.entries[i].description
+                        text = entry.description
 
 
             article_keywords = [] # list to hold the keywords found in the article
@@ -192,11 +193,17 @@ def fetch(client, url, title):
 
 # fetches 350 articles
 def daily_fetch():
+    start = time.perf_counter()
+
     global counter
     global connection_string
     global database_name
+
     # connects to MongoDB
     client = MongoClient(connection_string)
+    database = client[database_name]
+    start_index = database.article_info.count_documents()
+    print(f"start index: {start_index}")
 
     # fetches articles from high priority websites w/ the 350 article limit
     index = 0
@@ -219,13 +226,16 @@ def daily_fetch():
     # fetches the rest of the 350 articles from the PTT stock board
     if counter < 350:
         num = 350 - counter
-        PTT_scraper.fetch(num)
+        PTT_scraper.fetch(client, database_name, num)
 
     # runs deduplication logic using tfidf
     deduplication.tfidf_comparison(client, database_name, 1)
-    sentiment_analysis.analyze(client, database_name)
+    sentiment_analysis.analyze(client, database_name, start_index)
 
     client.close()
+
+    end = time.perf_counter()
+    print(f"total time taken: {end - start}")
 
 print("fetching")
 daily_fetch()

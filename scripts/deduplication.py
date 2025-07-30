@@ -1,7 +1,10 @@
-from pymongo import MongoClient # for uploading data to MongoDB
+print("importing vectorizer")
 from sklearn.feature_extraction.text import TfidfVectorizer
+print("importing cosine similarity")
 from sklearn.metrics.pairwise import cosine_similarity
+print("importing string")
 import string
+print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
 
 # removes punctuation and formatting text from a document
@@ -35,24 +38,25 @@ def tfidf_comparison(client, database_name, threshold):
     duplicate_article_ids = [] # stores ids of articles marked as duplicates
 
     # loops through indexes of each stored text
-    for index in range((len(cleaned_texts))):
+    for index, current_id in enumerate(ids):
         
         # skips the article if it has been marked as a duplicate
-        if ids[index] in duplicate_article_ids:
+        if current_id in duplicate_article_ids:
             continue
 
         # creates a cosine similarity matrix between the current text and the rest of the texts
         similarities = cosine_similarity(tfidf_matrix[index][0], tfidf_matrix)
 
-        counter = 0
+        counter = 0 # counts the number of similar articles
+
         # loops through each index in the cosine similarity matrix
-        for score_index in range((len(similarities[0]))): # using similarities[0] b/c there is only one row in the matrix
+        for score_index, (similarity_score, article_id) in enumerate(zip(similarities[0], ids)): # using similarities[0] b/c there is only one row in the matrix
             
             # checks if the similarity index is at or above the threshold
-            if similarities[0][score_index] >= threshold:
+            if similarity_score >= threshold:
                 
                 # finds the id of the duplicate and adds it to the list of duplicates
-                duplicate_id = ids[score_index]
+                duplicate_id = article_id
                 duplicate_article_ids.append(duplicate_id)
                 counter += 1
             
@@ -67,8 +71,8 @@ def tfidf_comparison(client, database_name, threshold):
         database.article_info.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
-    # closes MongoClient
-    client.close()
+    # closes cursor
+    documents.close()
 
 # removes all documents considered duplicates with sbert
 def sbert_comparison(client, database_name, threshold):
@@ -95,10 +99,10 @@ def sbert_comparison(client, database_name, threshold):
     duplicate_article_ids = [] # stores ids of articles marked as duplicates
 
     # loops through indexes of each stored text
-    for index in range((len(cleaned_texts))):
+    for index, current_id in enumerate(ids):
         
         # skips the article if it has been marked as a duplicate
-        if ids[index] in duplicate_article_ids:
+        if current_id in duplicate_article_ids:
             continue
         
         current_doc = vectorized_docs[index]
@@ -109,14 +113,13 @@ def sbert_comparison(client, database_name, threshold):
 
         counter = 0
         # loops through each index in the cosine similarity matrix
-        for score_index in range((len(similarities[0]))):
+        for score_index, (similarity_score, article_id) in enumerate(zip(similarities[0], ids)): # using similarities[0] b/c there is only one row in the matrix
             
             # checks if the similarity index is at or above the threshold
-            if similarities[0][score_index] >= threshold:
-                print("duplicate found")
+            if similarity_score >= threshold:
                 
                 # finds the id of the duplicate and adds it to the list of duplicates
-                duplicate_id = ids[score_index]
+                duplicate_id = article_id
                 duplicate_article_ids.append(duplicate_id)
                 counter += 1
             
@@ -130,5 +133,8 @@ def sbert_comparison(client, database_name, threshold):
 
         database.article_info.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
+    
+    # closes cursor
+    documents.close()
 
 #sbert_comparison("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/", "news_info", 1)

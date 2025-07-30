@@ -30,9 +30,9 @@ Directional market implication is proven when at least 2 of the 3 following cond
 2. The event has market-level implication (e.g. affects sector outlook, macro policy, investor behavior), or 
 3. There is a clear statement of expectation or sentiment from a named source (e.g. CEO, analyst, government official).
 
--If there is no directional market implication proven, label the sentiment tone as \"neutral\". 
--If there is directional market implication proven but the implication is not clearly positive or negative OR the implication is both positive and negative, label the sentiment tone as \"neutral\". 
--If there is directional market implication proven and it is clearly positive, label the sentiment tone as \"bullish\". If there is directional market implication proven and it is clearly negative, label the sentiment tone as \"bearish\". 
+-If there is no directional market implication proven, label the sentiment tone as "neutral". 
+-If there is directional market implication proven but the implication is not clearly positive or negative OR the implication is both positive and negative, label the sentiment tone as "neutral". 
+-If there is directional market implication proven and it is clearly positive, label the sentiment tone as "bullish". If there is directional market implication proven and it is clearly negative, label the sentiment tone as "bearish". 
 -If none of these conditions apply, make your own judgement and select the sentiment tone that best applies."""
 
 confidence_prompt = """
@@ -41,10 +41,10 @@ To determine the confidence score:
 
 You will now answer 10 yes/no questions to assess how confident you are in your sentiment classification of the article.
 
-Answer each question with \"Yes\" or \"No\" only.
+Answer each question with "Yes" or "No" only.
 
 Then, calculate your confidence score as:  
-(Number of \"Yes\" answers) ÷ 10 → Return a float between 0.0 and 1.0
+(Number of "Yes" answers) ÷ 10 → Return a float between 0.0 and 1.0
 
 Here are your questions:
 1. Is the sentiment direction (positive/negative) clearly implied by the article?
@@ -57,7 +57,12 @@ Here are your questions:
 8. Is the timing of the event recent (within the past 72 hours)?
 9. Are there multiple supporting data points or factual references?
 10. Would this article be relevant for a trading alert?
-After answering, output the total number of \"Yes\", and return the confidence score as a float between 0.0 and 1.0. Format the output as a json file."""
+After answering, output the total number of "Yes", and return the confidence score as a float between 0.0 and 1.0. Format the output as a json file, in the following format:
+
+{
+    "yes_answers" : "..."
+    "confidence_score" : "..."
+}"""
 
 entities_prompt = """Extract all named entities mentioned in the following financial article.
 
@@ -68,36 +73,34 @@ Return a list of entities that includes:
 
 Format your response in a json file as:
 {
-  \"entities\": [\"TSMC\", \"NVIDIA\", \"Fed\", \"Elon Musk\"]
+  "entities": ["TSMC", "NVIDIA", "Fed", "Elon Musk"]
 }"""
 
-event_type_prompt = """You are a financial news analyst.
-
-Given the news title and content, identify the main **event type** mentioned in the article.
+event_type_prompt = f"""Given the news title and content, identify the main **event type** mentioned in the article.
 
 Choose the most appropriate label from this list:
-""" + str(event_type_list) + """
+{event_type_list}
 
 Return the event type as a single string.
 
-If none applies, return \"none\"."""
+If none applies, return "none"."""
 
-system_prompt = """You are a financial news analyst. Given a headline and its content, determine:
-- Overall sentiment tone: bullish / bearish / neutral""" + tone_prompt + """
+system_prompt = f"""You are a financial news analyst. Given a headline and its content, determine:
+- Overall sentiment tone: bullish / bearish / neutral {tone_prompt} 
 - Topic classification (e.g., semiconductor, Fed policy, trade war)
-- Event type (e.g., earnings, regulation, M&A, downgrade)
-- A confidence score (0–1) for your judgment""" + confidence_prompt + """
+- Event type (e.g., earnings, regulation, M&A, downgrade) {event_type_prompt}
+- A confidence score (0–1) for your judgment
 - A one-sentence explanation summarizing your reasoning
 - A sentence quoted from the news that best supports your sentiment decision
 
 Return all results in the following JSON format:
 {
-  \"tone\": \"...\",
-  \"topic\": \"...\",
-  \"event_type\": \"...\",
-  \"confidence\": ...,
-  \"summary\": \"...\",
-  \"evidence\": \"...\"
+  "tone": "...",
+  "topic": "...",
+  "event_type": "...",
+  "confidence": ...,
+  "summary": "...",
+  "evidence": "..."
 }"""
 
 headline_content_prompt = """Return the headline and content in the following format:
@@ -111,12 +114,12 @@ News content: {{content}}"""
 #AI_client = OpenAI() # OPENAI_API_KEY set as environment variable
 #Mongo_client = MongoClient(connection_string)
 
-def analyze(Mongo_client, database_name):
+def analyze(Mongo_client, database_name, start_index):
     database = Mongo_client[database_name]
     documents = database.article_info.find({})
     with OpenAI() as AI_client:
-        counter = 0
-        for doc in documents:
+        counter = start_index
+        for doc in documents[start_index:]:
 
             headline = doc["title"]
             content = doc["body"]
@@ -125,7 +128,7 @@ def analyze(Mongo_client, database_name):
                     model = "gpt-4.1-nano",
                     messages = [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": "Give me the output for an article using the language of the article, for which the headline is: " + headline + ", and the content is: " + content},
+                        {"role": "user", "content": f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}"},
                     ],
                     response_format = {"type": "json_object"}
                 )
@@ -176,5 +179,8 @@ def analyze(Mongo_client, database_name):
             database.sentiment_analysis.insert_one(parsed_entities_response)
             
             counter += 1
+    
+    # closes cursor
+    documents.close()
 
 #analyze(Mongo_client)

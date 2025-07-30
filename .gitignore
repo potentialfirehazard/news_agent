@@ -1,3 +1,5 @@
 /.vscode
 /archive
 /demo
+/scripts/__pycache__
+/my_venv

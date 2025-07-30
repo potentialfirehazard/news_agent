@@ -24,14 +24,14 @@ def get_body_text(soup):
     text = ""
     while True:
         # breaks from the loop if the end of the page is reached
-        if tag == None or tag.next_sibling == None:
+        if tag is None or tag.next_sibling is None:
             break
 
         # checks if the next sibling is a tag
         if isinstance(tag, bs4.Tag):
 
             # checks if the next tag has a class
-            if tag.get("class") != None:
+            if tag.get("class") is not None:
 
                 # ends the loop if the article has ended and the next tag is for comments
                 if tag.get("class")[0] == "push":
@@ -53,16 +53,15 @@ def get_body_text(soup):
     return(text)
 
 # fetches a specified number of articles from the PTT Stock Board
-def fetch(number):
+def fetch(client, database_name, number):
     
-    client = MongoClient("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/") # replace string with wanted connection string
-    database = client["news_info"] # replace string with wanted database
+    database = client[database_name]
     counter = 0 # counts the number of articles fetched
     url = "https://www.ptt.cc/bbs/stock/index.html"
     cont = True
 
     # opens keyword filter set
-    with open("news agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
+    with open("news_agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
 
         # loops until the number of articles needed is met
         while cont:
@@ -76,7 +75,7 @@ def fetch(number):
 
                 # finds the tag holding the link and title of each article
                 info = i.find("a")
-                if info != None:
+                if info is not None:
                     # parses the article linked
                     article_link = "https://www.ptt.cc" + info.get("href")
                     article = get_article(article_link)
@@ -125,6 +124,3 @@ def fetch(number):
             for i in buttons:
                     if i.get_text() == "‹ 上頁":
                         url = "https://www.ptt.cc" + i.get("href")
-    
-    # closes MongoClient
-    client.close()
