@@ -1,7 +1,7 @@
 """This program feeds the fetched information into OpenAI and provides the sentiment analysis
 output for each article"""
 
-from openai import OpenAI
+from openai import OpenAI, APITimeoutError, APIConnectionError
 from pymongo import MongoClient # for uploading data to MongoDB
 import json
 
@@ -85,6 +85,16 @@ Return the event type as a single string.
 
 If none applies, return "none"."""
 
+output_json_format = """
+{
+    "tone" : "...",
+    "topic": "...",
+    "event_type": "...",
+    "confidence": ...,
+    "summary": "...",
+    "evidence": "..."
+}"""
+
 system_prompt = f"""You are a financial news analyst. Given a headline and its content, determine:
 - Overall sentiment tone: bullish / bearish / neutral {tone_prompt} 
 - Topic classification (e.g., semiconductor, Fed policy, trade war)
@@ -94,44 +104,49 @@ system_prompt = f"""You are a financial news analyst. Given a headline and its c
 - A sentence quoted from the news that best supports your sentiment decision
 
 Return all results in the following JSON format:
-{
-  "tone": "...",
-  "topic": "...",
-  "event_type": "...",
-  "confidence": ...,
-  "summary": "...",
-  "evidence": "..."
-}"""
+{output_json_format}"""
 
 headline_content_prompt = """Return the headline and content in the following format:
 News headline: {{title}}
 News content: {{content}}"""
 
-#connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
-#database_name = "news_info" # replace with wanted database name
+connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
+database_name = "news_info" # replace with wanted database name
 
 # connects to OpenAI and MongoDB
 #AI_client = OpenAI() # OPENAI_API_KEY set as environment variable
-#Mongo_client = MongoClient(connection_string)
+Mongo_client = MongoClient(connection_string)
 
 def analyze(Mongo_client, database_name, start_index):
     database = Mongo_client[database_name]
     documents = database.article_info.find({})
-    with OpenAI() as AI_client:
+    with OpenAI(timeout = 20.0) as AI_client:
         counter = start_index
         for doc in documents[start_index:]:
 
             headline = doc["title"]
             content = doc["body"]
+
             # gets the result for the sentiment result
-            main_response = AI_client.chat.completions.create(
-                    model = "gpt-4.1-nano",
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}"},
-                    ],
-                    response_format = {"type": "json_object"}
-                )
+            num_tries = 0
+            while num_tries < 3:
+                try:
+                    main_response = AI_client.chat.completions.create(
+                            model = "gpt-4.1-nano",
+                            messages = [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}"},
+                            ],
+                            response_format = {"type": "json_object"}
+                        )
+                    break
+                except APITimeoutError as timeout:
+                    print(f"openai timed out: {timeout}")
+                    num_tries += 1
+                except APIConnectionError as connection_error:
+                    print(f"openai had a connection error: {connection_error}")
+                    num_tries += 1
+
 
             # changes the response string to a dictionary
             response = main_response.choices[0].message.content
@@ -183,4 +198,4 @@ def analyze(Mongo_client, database_name, start_index):
     # closes cursor
     documents.close()
 
-#analyze(Mongo_client)
+#analyze(Mongo_client, database_name, 64)

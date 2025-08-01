@@ -1,0 +1,25 @@
+[project]
+name = "news-agent"
+version = "0.1.0"
+description = "dependencies for this project"
+authors = [
+    {name = "Madelyn Kraemer",email = "madelynsk7@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "feedparser (>=6.0.11,<7.0.0)",
+    "pymongo (>=4.13.2,<5.0.0)",
+    "schedule (>=1.2.2,<2.0.0)",
+    "beautifulsoup4 (>=4.13.4,<5.0.0)",
+    "requests (>=2.32.4,<3.0.0)",
+    "scikit-learn (>=1.7.1,<2.0.0)",
+    "sentence-transformers (>=5.0.0,<6.0.0)",
+    "openai (>=1.98.0,<2.0.0)",
+    "pytz (>=2025.2,<2026.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

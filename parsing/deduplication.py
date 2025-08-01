@@ -1,10 +1,10 @@
-print("importing vectorizer")
+#print("importing vectorizer")
 from sklearn.feature_extraction.text import TfidfVectorizer
-print("importing cosine similarity")
+#print("importing cosine similarity")
 from sklearn.metrics.pairwise import cosine_similarity
-print("importing string")
+#print("importing string")
 import string
-print("importing sentence transformers")
+#print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
 
 # removes punctuation and formatting text from a document

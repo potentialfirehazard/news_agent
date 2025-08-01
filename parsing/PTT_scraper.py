@@ -61,7 +61,7 @@ def fetch(client, database_name, number):
     cont = True
 
     # opens keyword filter set
-    with open("news_agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
+    with open("data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
 
         # loops until the number of articles needed is met
         while cont:

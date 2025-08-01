@@ -5,18 +5,16 @@ to MongoDB. '''
 import feedparser # for RSS parsing
 from pymongo import MongoClient # for uploading data to MongoDB
 import schedule # for scheduling fetches 3 times daily
+import pytz # for timezones
 import time # to sleep the program when not running
 import csv # for parsing the keyword filter set
-import PTT_scraper # getting the script for the HTML scraper for the PTT stock board
-#from newspaper import Article # for parsing the body text of articles
-#from newspaper import Config # for configuring the Article object
-#from newspaper import ArticleException # for handling exceptions in the Article object
 from bs4 import BeautifulSoup # for HTML parsing
 import requests # to get the HTML of websites
+from parsing import PTT_scraper # getting the script for the HTML scraper for the PTT stock board
 print("importing sentiment_analysis")
-import sentiment_analysis
+from parsing import sentiment_analysis
 print("importing deduplication")
-import deduplication
+from parsing import deduplication
 
 
 connection_string = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
@@ -42,7 +40,7 @@ def fetch(client, url, title):
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
 
     # opens the keyword filter file
-    with open("news_agent\data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
+    with open("data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
 
         # loops through each entry in the RSS feed
         for entry in NewsFeed.entries:
@@ -202,7 +200,7 @@ def daily_fetch():
     # connects to MongoDB
     client = MongoClient(connection_string)
     database = client[database_name]
-    start_index = database.article_info.count_documents()
+    start_index = database.article_info.count_documents({})
     print(f"start index: {start_index}")
 
     # fetches articles from high priority websites w/ the 350 article limit
@@ -238,7 +236,7 @@ def daily_fetch():
     print(f"total time taken: {end - start}")
 
 print("fetching")
-daily_fetch()
+#daily_fetch()
 # schedules the daily fetch for the three times each day, in Taiwan's time zone
 schedule.every().day.at("07:30", "Asia/Hong_Kong").do(daily_fetch)
 schedule.every().day.at("13:30", "Asia/Hong_Kong").do(daily_fetch)
