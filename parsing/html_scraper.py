@@ -1,6 +1,7 @@
-'''This program is an HTML web scraper that obtains title, source, body, url, timestamp, and keywords from articles from
+"""This program is an HTML web scraper that obtains title, source, body, url, timestamp, and keywords from articles from
 the PTT Stock Board. THe data obtained is uploaded to MongoDB. This program is specific to the PTT Stock Board, and cannot
-be used for other websites due to different HTML structures.'''
+be used for other websites due to different HTML structures.
+"""
 
 from bs4 import BeautifulSoup # for HTML parsing
 import bs4 # for HTML parsing
@@ -9,14 +10,79 @@ import csv # to parse the keyword filter set
 from pymongo import MongoClient # to upload to MongoDB
 
 # gets the BeautifulSoup object of the webpage for scraping
-def get_article(url):
-    response = requests.get(url)
+def get_article(url : str) -> BeautifulSoup:
+    try:
+        response = requests.get(url)
+    except:
+        print("requests failed")
+        return None
+
     html_content = response.text
 
     return BeautifulSoup(html_content, "lxml")
 
+def find_text_by_name(article_link : str, name : str) -> str:
+    text = ""
+    soup = get_article(article_link)
+    if soup is None:
+        return None
+    article = soup.find(name)
+
+    # checks if the correct tag was found
+    if article != None:
+        paragraphs = article.find_all("p")
+
+        # adds the text in each p tag to the saved text
+        for i in paragraphs:
+            text += i.get_text()
+    
+    if text == "":
+        text = None
+    
+    return text
+
+def find_text_by_id(article_link : str, id_name : str) -> str:
+    text = ""
+    soup = get_article(article_link)
+    if soup is None:
+        return None
+    article = soup.find(id = id_name)
+
+    # checks if the correct tag was found
+    if article != None:
+        paragraphs = article.find_all("p")
+
+        # adds the text in each p tag to the saved text
+        for i in paragraphs:
+            text += i.get_text()
+    
+    if text == "":
+        text = None
+
+    return text
+
+def find_text_by_class(article_link : str, class_name : str) -> str:
+    text = ""
+    soup = get_article(article_link)
+    if soup is None:
+        return None
+    article = soup.find(class_ = class_name)
+
+    # checks if the correct tag was found
+    if article != None:
+        paragraphs = article.find_all("p")
+
+        # adds the text in each p tag to the saved text
+        for i in paragraphs:
+            text += i.get_text()
+    
+    if text == "":
+        text = None
+
+    return text
+
 # gets the body text of a PTT Stock Board Post
-def get_body_text(soup):
+def get_PTT_body_text(soup : BeautifulSoup) -> str:
 
     article = soup.find_all(class_ = "article-metaline") # uses article-metaline tags as starting point for body text
     tag = article[len(article) - 1] # finds the last article-metaline tag
@@ -53,9 +119,8 @@ def get_body_text(soup):
     return(text)
 
 # fetches a specified number of articles from the PTT Stock Board
-def fetch(client, database_name, number):
+def PTT_fetch(collection, number : int) -> None:
     
-    database = client[database_name]
     counter = 0 # counts the number of articles fetched
     url = "https://www.ptt.cc/bbs/stock/index.html"
     cont = True
@@ -86,7 +151,7 @@ def fetch(client, database_name, number):
                             time = i.find(class_ = "article-meta-value").get_text()
                     
                     # finds body text
-                    text = get_body_text(article)
+                    text = get_PTT_body_text(article)
                     
                     article_keywords = []
                     
@@ -109,7 +174,7 @@ def fetch(client, database_name, number):
                     }
 
                     # adds the file to the database
-                    database.article_info.insert_one(data)
+                    collection.insert_one(data)
                     counter += 1
                     
                     # stops fetching if the number of articles needed is reached

@@ -1,3 +1,8 @@
+"""This program contains the deduplication logic for the saved articles. There is a function for TD-IDF vectorization and
+one for SBERT vectorization, and ultimately cosine similarity is used to determine similarity. Articles over the determined
+similarity threshold will be deleted.
+"""
+
 #print("importing vectorizer")
 from sklearn.feature_extraction.text import TfidfVectorizer
 #print("importing cosine similarity")
@@ -6,22 +11,21 @@ from sklearn.metrics.pairwise import cosine_similarity
 import string
 #print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
+from pymongo import MongoClient
 
 # removes punctuation and formatting text from a document
-def clean(document):
+def clean(document : str) -> str:
     translator = str.maketrans("", "", string.punctuation)
     cleaned_doc = document.translate(translator)
     cleaned_doc = cleaned_doc.replace("\n", "")
     return cleaned_doc
 
 # removes all documents considered duplicates from the MongoDB database w/ td-idf logic
-def tfidf_comparison(client, database_name, threshold):
-    # connects to the database
-    database = client[database_name]
+def tfidf_comparison(collection, threshold : int) -> None:
     vectorizer = TfidfVectorizer() # creates a vectorizer for the document
     
     # gets all the documents from the database
-    documents = database.article_info.find()
+    documents = collection.find()
     cleaned_texts = []
     ids = []
 
@@ -68,20 +72,18 @@ def tfidf_comparison(client, database_name, threshold):
     # deletes every id marked to be deleted
     for id in duplicate_article_ids:
 
-        database.article_info.delete_one({"_id" : id})
+        collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
     # closes cursor
     documents.close()
 
 # removes all documents considered duplicates with sbert
-def sbert_comparison(client, database_name, threshold):
-    # connects to the database
-    database = client[database_name]
+def sbert_comparison(collection, threshold : int) -> None:
     vectorizer = SentenceTransformer("all-MiniLM-L6-v2") # creates a vectorizer for the document
     
     # gets all the documents from the database
-    documents = database.article_info.find()
+    documents = collection.find()
     cleaned_texts = []
     ids = []
 
@@ -131,10 +133,12 @@ def sbert_comparison(client, database_name, threshold):
     # deletes every id marked to be deleted
     for id in duplicate_article_ids:
 
-        database.article_info.delete_one({"_id" : id})
+        collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
     # closes cursor
     documents.close()
 
-#sbert_comparison("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/", "news_info", 1)
+if __name__ == "__main__":
+    client = MongoClient("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/")
+    sbert_comparison(client, "news_info", 1)
