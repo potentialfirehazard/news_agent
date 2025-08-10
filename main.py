@@ -166,12 +166,17 @@ def daily_fetch() -> None:
     # creates a collection w/ the desired name for the sentiment analysis info, unless one already exists
     try:
         database.create_collection(sentiment_collection_name)
+        database.create_collection("entity_match_results")
+        database.create_collection("confidence_score_details")
     except Exception as e:
         print(f"Error creating collection: {e}")
     sentiment_collection = database[sentiment_collection_name]
+    entity_collection = database["entity_match_results"]
+    confidence_collection = database["confidence_score_details"]
 
     # runs sentiment analysis logic
-    sentiment_analysis.analyze(article_collection, sentiment_collection, start_index)
+    #sentiment_analysis.analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index)
+    sentiment_analysis.start_async(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index)
 
     client.close() # closes MongoClient
 

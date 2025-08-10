@@ -85,7 +85,10 @@ def find_text_by_class(article_link : str, class_name : str) -> str:
 def get_PTT_body_text(soup : BeautifulSoup) -> str:
 
     article = soup.find_all(class_ = "article-metaline") # uses article-metaline tags as starting point for body text
-    tag = article[len(article) - 1] # finds the last article-metaline tag
+    if article is None or len(article) == 0:
+        return None
+    else:
+        tag = article[len(article) - 1] # finds the last article-metaline tag
 
     text = ""
     while True:
@@ -152,6 +155,8 @@ def PTT_fetch(collection, number : int) -> None:
                     
                     # finds body text
                     text = get_PTT_body_text(article)
+                    if text is None:
+                        continue
                     
                     article_keywords = []
                     

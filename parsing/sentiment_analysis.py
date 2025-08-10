@@ -138,11 +138,13 @@ def get_response(client : OpenAI, system_prompt, content) -> str:
     parsed_response = json.loads(response)
     return parsed_response
 
-def analyze(article_collection, output_collection, start_index : int) -> None:
+def analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int) -> None:
     documents = article_collection.find({})
     with OpenAI(timeout = 20.0) as AI_client:
         counter = start_index # for document naming
-        documents_to_add = [] # holds documents to add to MongoDB
+        sentiment_docs = [] # holds documents to add to MongoDB
+        entity_docs = []
+        confidence_docs = []
         for doc in documents[start_index:]:
 
             headline = doc["title"]
@@ -151,50 +153,62 @@ def analyze(article_collection, output_collection, start_index : int) -> None:
             # gets the result for the sentiment result
             parsed_sentiment_response = get_response(AI_client, system_prompt, 
                                                      f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}")
-            parsed_sentiment_response.update({"_id" : "sentiment_result_" + str(counter)})
+            parsed_sentiment_response.update({"_id" : str(counter)})
 
             # gets the result for the confidence score detail
             parsed_confidence_response = get_response(AI_client, 
                                                       f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}", 
                                                       confidence_prompt)
-            parsed_confidence_response.update({"_id" : "confidence_score_detail_" + str(counter)})
+            parsed_confidence_response.update({"_id" : str(counter)})
 
             # gets the response for the entity match
             parsed_entities_response = get_response(AI_client, 
                                                     f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}",
                                                     entities_prompt)
-            parsed_entities_response.update({"_id" : "entity_match_result_" + str(counter)})
+            parsed_entities_response.update({"_id" : str(counter)})
 
             parsed_sentiment_response["confidence"] = parsed_confidence_response["confidence_score"]
 
             
-            documents_to_add.extend([parsed_sentiment_response, parsed_confidence_response, parsed_entities_response])
+            sentiment_docs.append(parsed_sentiment_response)
+            entity_docs.append(parsed_entities_response)
+            confidence_docs.append(parsed_confidence_response)
             
             counter += 1
         
         print("inserting documents")
-        output_collection.insert_many(documents_to_add)
+        sentiment_collection.insert_many(sentiment_docs)
+        entity_collection.insert_many(entity_docs)
+        confidence_collection.insert_many(confidence_docs)
 
     # closes cursor
     documents.close()
 
-async def get_async_response(system_prompt, content) -> str:
-    async with AsyncOpenAI() as client:
-        response =  await client.chat.completions.create(
-                    model = "gpt-4.1-nano",
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": content},
-                    ],
-                    response_format = {"type": "json_object"},
-                    #max_completion_tokens = 32768,
-                    timeout = 30.0
-                )
-        return response.choices[0].message.content
+async def get_async_response(semaphore, client, system_prompt, content) -> str:
+    print("get async response called")
+    async with semaphore:
+        try:
+            response =  await client.chat.completions.create(
+                        model = "gpt-4.1-nano",
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": content},
+                        ],
+                        response_format = {"type": "json_object"},
+                        #max_completion_tokens = 32768,
+                        timeout = 120.0
+                    )
+            print(response.choices[0].message.content)
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"error getting openai response: {e}")
+            return None
 
-async def async_analyze(article_collection, output_collection, start_index : int):
+async def async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
     prompts = []
     documents = article_collection.find({})
+    semaphore = asyncio.Semaphore(10)
+    client = AsyncOpenAI()
 
     for doc in documents[start_index:]:
         headline = doc["title"]
@@ -204,19 +218,32 @@ async def async_analyze(article_collection, output_collection, start_index : int
         prompts.extend([[system_prompt, content_prompt_sentiment], [system_prompt_2, confidence_prompt], [system_prompt_2, entities_prompt]])
         
     print("creating tasks")
-    tasks = [get_async_response(prompt[0], prompt[1]) for prompt in prompts]
+    tasks = [get_async_response(semaphore, client, prompt[0], prompt[1]) for prompt in prompts]
     print("getting results")
-    try:
-        async with asyncio.timeout(10):
-            results = await asyncio.gather(*tasks)
+    
+    print("awaiting")
+    results = await asyncio.gather(*tasks)
 
-            print("parsing results")
-            parsed_results = [json.loads(result) for result in results]
-            
-            print("inserting results")
-            output_collection.insert_many(parsed_results)
-    except asyncio.TimeoutError:
-        print("task timed out :(")
+    print("parsing results")
+    parsed_results = [json.loads(result) for result in results]
+    
+    sentiment_responses = parsed_results[0::3]
+    confidence_responses = parsed_results[1::3]
+    entity_responses = parsed_results[2::3]
+
+    for index, (sentiment, confidence, entities) in enumerate(zip(sentiment_responses, confidence_responses, entity_responses)):
+        sentiment["confidence"] = confidence["confidence_score"]
+        sentiment["_id"] = index + start_index
+        confidence["_id"] = index + start_index
+        entities["_id"] = index + start_index
+
+    print("inserting results")
+    sentiment_collection.insert_many(sentiment_responses)
+    confidence_collection.insert_many(confidence_responses)
+    entity_collection.insert_many(entity_responses)
+
+def start_async(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
+    asyncio.run(async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index))
         
 
 if __name__ == "__main__":
@@ -226,16 +253,26 @@ if __name__ == "__main__":
     database = Mongo_client[database_name]
 
     try:
-        database.create_collection("sentiment_info")
+        database.create_collection("sentiment_results")
     except Exception as e:
         print(f"Error creating collection: {e}")
-    sentiment_collection = database["sentiment_info"]
+    try:
+        database.create_collection("entity_match_results")
+    except Exception as e:
+        print(f"Error creating collection: {e}")
+    try:
+        database.create_collection("confidence_score_details")
+    except Exception as e:
+        print(f"Error creating collection: {e}")
 
+    sentiment_collection = database["sentiment_results"]
+    entity_collection = database["entity_match_results"]
+    confidence_collection = database["confidence_score_details"]
     article_collection = database["article_info"]
 
     start = time.perf_counter()
-    asyncio.run(async_analyze(article_collection, sentiment_collection, 0))
-    #analyze(article_collection, sentiment_collection, 0)
+    asyncio.run(async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, 0))
+    #analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, 0)
     end = time.perf_counter()
     total_time = end - start
     print(f"time taken: {total_time} seconds")
