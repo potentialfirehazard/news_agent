@@ -11,7 +11,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import string
 #print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
-from pymongo import MongoClient
 
 # removes punctuation and formatting text from a document
 def clean(document : str) -> str:
@@ -75,6 +74,13 @@ def tfidf_comparison(collection, threshold : int) -> None:
         collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
+    # resets ids for the new number of documents
+    index = 0
+    documents = collection.find()
+    for doc in documents:
+        collection.update_one({"_id" : doc["_id"]}, {"$set": {"id": "index"}})
+        index += 1
+
     # closes cursor
     documents.close()
 
@@ -136,9 +142,20 @@ def sbert_comparison(collection, threshold : int) -> None:
         collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
+    # resets ids for the new number of documents
+    index = 0
+    documents = collection.find()
+    for doc in documents:
+        collection.update_one({"_id" : doc["_id"]}, {"$set": {"id": "index"}})
+        index += 1
+    
     # closes cursor
     documents.close()
 
 if __name__ == "__main__":
-    client = MongoClient("mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/")
+    import os
+    from pymongo import MongoClient
+
+    connection_string = os.getenv("MONGODB_CONNECTION_STRING")
+    client = MongoClient(connection_string)
     sbert_comparison(client, "news_info", 1)

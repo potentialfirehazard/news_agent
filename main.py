@@ -14,9 +14,11 @@ print("importing sentiment_analysis")
 from parsing import sentiment_analysis
 print("importing deduplication")
 from parsing import deduplication
+import os
 
 
-connection_string : str = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
+connection_string : str = os.getenv("MONGODB_CONNECTION_STRING")  # replace with wanted connection string
+print(connection_string)
 database_name : str = "news_info" # replace with wanted database name
 article_collection_name : str = "article_info" # replace with wanted collection name for extracted article info
 sentiment_collection_name : str = "sentiment_info" # replace with wanted collection name for sentiment analysis info
@@ -57,16 +59,18 @@ def get_body_text(article_link : str, rss_entry, title : str) -> str:
     return text
 
 # fetches articles from one source
-def fetch(collection, url : str, title : str) -> None:
+def fetch(collection, url : str, title : str, start_index : int) -> None:
 
+    global counter # counts the number of articles fetched
+    id = start_index + counter
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
+    docs_to_save = [] # holds the documents to be uploaded
 
     with open("data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
 
         # loops through each entry in the RSS feed
         for entry in NewsFeed.entries:
             
-            global counter
             article_link = entry.link
             article_title = entry.title
             article_timestamp = entry.published
@@ -89,7 +93,7 @@ def fetch(collection, url : str, title : str) -> None:
             csv_reader = csv.reader(file)
             keyword_found = False
             for row in csv_reader:
-                if row: # check if the row isn't empty
+                if row: # checks if the row isn't empty
                     keyword = row[0]
 
                     if keyword in article_title or keyword in text:
@@ -99,8 +103,9 @@ def fetch(collection, url : str, title : str) -> None:
             # skips the article if no keywords are found
             if keyword_found == False:
                 continue
-
+            
             data = {
+                "id" : id,
                 "title" : article_title,
                 "source" : title,
                 "body" : text,
@@ -109,10 +114,16 @@ def fetch(collection, url : str, title : str) -> None:
                 "keywords" : article_keywords
             }
 
+            docs_to_save.append(data)
             # stores the article
-            collection.insert_one(data)
+            #collection.insert_one(data)
             counter += 1
+            id += 1
             print(article_title + " from " + title + " done")
+
+    # stores the articles into the database
+    if len(docs_to_save) != 0:
+        collection.insert_many(docs_to_save)
 
 # fetches 350 articles
 def daily_fetch() -> None:
@@ -144,7 +155,7 @@ def daily_fetch() -> None:
         # breaks out of the loop if every website has been visited
         if index >= len(high_priority_url_list):
             break
-        fetch(article_collection, high_priority_url_list[index], high_priority_source_list[index])
+        fetch(article_collection, high_priority_url_list[index], high_priority_source_list[index], start_index)
         index += 1
     
     # fetches articles from lower priority websites w/ the 350 article limit
@@ -152,13 +163,13 @@ def daily_fetch() -> None:
     while counter <= 350:
         if index >= len(lower_priority_url_list):
             break
-        fetch(article_collection, lower_priority_url_list[index], lower_priority_source_list[index])
+        fetch(article_collection, lower_priority_url_list[index], lower_priority_source_list[index], start_index)
         index += 1
     
     # fetches the rest of the 350 articles from the PTT stock board
     if counter < 350:
         num = 350 - counter
-        html_scraper.PTT_fetch(article_collection, num)
+        html_scraper.PTT_fetch(article_collection, num, start_index + counter)
 
     # runs deduplication logic using tfidf
     deduplication.tfidf_comparison(article_collection, 1)

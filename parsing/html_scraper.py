@@ -122,11 +122,13 @@ def get_PTT_body_text(soup : BeautifulSoup) -> str:
     return(text)
 
 # fetches a specified number of articles from the PTT Stock Board
-def PTT_fetch(collection, number : int) -> None:
+def PTT_fetch(collection, number : int, start_index : int) -> None:
     
     counter = 0 # counts the number of articles fetched
     url = "https://www.ptt.cc/bbs/stock/index.html"
     cont = True
+    index = start_index
+    docs_to_save = []
 
     # opens keyword filter set
     with open("data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
@@ -170,6 +172,7 @@ def PTT_fetch(collection, number : int) -> None:
                     
                     # creates the file to be stored
                     data = {
+                        "id" : index,
                         "title" : info.get_text(),
                         "source" : "PTT Stock Board",
                         "body" : text,
@@ -179,8 +182,10 @@ def PTT_fetch(collection, number : int) -> None:
                     }
 
                     # adds the file to the database
-                    collection.insert_one(data)
+                    docs_to_save.append(data)
+                    #collection.insert_one(data)
                     counter += 1
+                    index += 1
                     
                     # stops fetching if the number of articles needed is reached
                     if counter >= number:
@@ -194,3 +199,5 @@ def PTT_fetch(collection, number : int) -> None:
             for i in buttons:
                     if i.get_text() == "‹ 上頁":
                         url = "https://www.ptt.cc" + i.get("href")
+    
+    collection.insert_many(docs_to_save)

@@ -4,7 +4,6 @@ output for each article
 
 import asyncio
 from openai import OpenAI, APITimeoutError, APIConnectionError, AsyncOpenAI
-from pymongo import MongoClient # for uploading data to MongoDB
 import json
 import time
 
@@ -153,19 +152,19 @@ def analyze(article_collection, sentiment_collection, entity_collection, confide
             # gets the result for the sentiment result
             parsed_sentiment_response = get_response(AI_client, system_prompt, 
                                                      f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}")
-            parsed_sentiment_response.update({"_id" : str(counter)})
+            parsed_sentiment_response.update({"id" : str(counter)})
 
             # gets the result for the confidence score detail
             parsed_confidence_response = get_response(AI_client, 
                                                       f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}", 
                                                       confidence_prompt)
-            parsed_confidence_response.update({"_id" : str(counter)})
+            parsed_confidence_response.update({"id" : str(counter)})
 
             # gets the response for the entity match
             parsed_entities_response = get_response(AI_client, 
                                                     f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}",
                                                     entities_prompt)
-            parsed_entities_response.update({"_id" : str(counter)})
+            parsed_entities_response.update({"id" : str(counter)})
 
             parsed_sentiment_response["confidence"] = parsed_confidence_response["confidence_score"]
 
@@ -233,9 +232,9 @@ async def async_analyze(article_collection, sentiment_collection, entity_collect
 
     for index, (sentiment, confidence, entities) in enumerate(zip(sentiment_responses, confidence_responses, entity_responses)):
         sentiment["confidence"] = confidence["confidence_score"]
-        sentiment["_id"] = index + start_index
-        confidence["_id"] = index + start_index
-        entities["_id"] = index + start_index
+        sentiment["id"] = index + start_index
+        confidence["id"] = index + start_index
+        entities["id"] = index + start_index
 
     print("inserting results")
     sentiment_collection.insert_many(sentiment_responses)
@@ -247,7 +246,10 @@ def start_async(article_collection, sentiment_collection, entity_collection, con
         
 
 if __name__ == "__main__":
-    connection_string : str = "mongodb+srv://madelynsk7:vy97caShIMZ2otO6@testcluster.aosckrl.mongodb.net/" # replace with wanted connection string
+    import os
+    from pymongo import MongoClient # for uploading data to MongoDB
+
+    connection_string : str = os.getenv("MONGODB_CONNECTION_STRING")
     database_name : str = "news_info" # replace with wanted database name
     Mongo_client = MongoClient(connection_string)
     database = Mongo_client[database_name]
