@@ -81,7 +81,8 @@ def tfidf_comparison(collection, threshold : int) -> None:
     for id in duplicate_article_ids:
 
         article = collection.find_one({"_id" : id})
-        logging.info(f"deleting article {article["title"]}")
+        title = article["title"]
+        logging.info(f"deleting article {title}")
         collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     

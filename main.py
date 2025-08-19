@@ -25,8 +25,6 @@ logging.basicConfig(
 
 connection_string : str = os.getenv("MONGODB_CONNECTION_STRING")  # replace with wanted connection string
 database_name : str = "news_info" # replace with wanted database name
-article_collection_name : str = "article_info" # replace with wanted collection name for extracted article info
-sentiment_collection_name : str = "sentiment_info" # replace with wanted collection name for sentiment analysis info
 
 # list of urls and source for higher quality websites. The indexes of url and source correspond
 high_priority_url_list : list[str] = ["https://news.cnyes.com/rss/v1/news/category/tw_stock", "https://www.moneydj.com/kmdj/RssCenter.aspx?svc=NW&fno=1&arg=X0000000", "https://tw.stock.yahoo.com/rss?category=tw-market", "https://news.cnyes.com/rss/v1/news/category/all"]
@@ -155,10 +153,10 @@ def daily_fetch() -> None:
 
     # creates a collection w/ the desired name unless it already exists
     try:
-        database.create_collection(article_collection_name)
+        database.create_collection("article_info")
     except Exception as e:
         print(f"Error creating collection: {e}")
-    article_collection = database[article_collection_name]
+    article_collection = database["article_info"]
 
     # finds the index of the next document that will be added (to avoid repetitive parsing of articles from previous fetches)
     start_index = article_collection.count_documents({})
@@ -192,12 +190,12 @@ def daily_fetch() -> None:
 
     # creates a collection w/ the desired name for the sentiment analysis info, unless one already exists
     try:
-        database.create_collection(sentiment_collection_name)
+        database.create_collection("sentiment_info")
         database.create_collection("entity_match_results")
         database.create_collection("confidence_score_details")
     except Exception as e:
         print(f"Error creating collection: {e}")
-    sentiment_collection = database[sentiment_collection_name]
+    sentiment_collection = database["sentiment_info"]
     entity_collection = database["entity_match_results"]
     confidence_collection = database["confidence_score_details"]
 
