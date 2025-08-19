@@ -15,17 +15,22 @@ from parsing import sentiment_analysis
 print("importing deduplication")
 from parsing import deduplication
 import os
+import logging
 
+logging.basicConfig(
+    filename = "main.log", 
+    level = logging.INFO, 
+    format = "%(asctime)s - %(levelname)s - %(message)s"
+)
 
 connection_string : str = os.getenv("MONGODB_CONNECTION_STRING")  # replace with wanted connection string
-print(connection_string)
 database_name : str = "news_info" # replace with wanted database name
 article_collection_name : str = "article_info" # replace with wanted collection name for extracted article info
 sentiment_collection_name : str = "sentiment_info" # replace with wanted collection name for sentiment analysis info
 
 # list of urls and source for higher quality websites. The indexes of url and source correspond
-high_priority_url_list : list[str] = ["https://news.cnyes.com/rss/v1/news/category/tw_stock", "https://www.moneydj.com/kmdj/RssCenter.aspx?svc=NW&fno=1&arg=X0000000", "https://tw.stock.yahoo.com/rss?category=tw-market", "https://news.cnyes.com/rss/v1/news/category/all", "https://news.cnyes.com/rss/v1/news/category/headline"]
-high_priority_source_list : list[str] = ["鉅亨網 (Anue)", "MoneyDJ 理財網", "Yahoo 奇摩股市", "鉅亨網 (Anue)", "鉅亨網 (Anue)"]
+high_priority_url_list : list[str] = ["https://news.cnyes.com/rss/v1/news/category/tw_stock", "https://www.moneydj.com/kmdj/RssCenter.aspx?svc=NW&fno=1&arg=X0000000", "https://tw.stock.yahoo.com/rss?category=tw-market", "https://news.cnyes.com/rss/v1/news/category/all"]
+high_priority_source_list : list[str] = ["鉅亨網 (Anue)", "MoneyDJ 理財網", "Yahoo 奇摩股市", "鉅亨網 (Anue)"]
 
 # list of urls and source for lower quality websites. The indexes of url and source correspond
 lower_priority_url_list : list[str] = ["https://cmsapi.businessweekly.com.tw/?CategoryId=efd99109-9e15-422e-97f0-078b21322450&TemplateId=8E19CF43-50E5-4093-B72D-70A912962D55", "https://techorange.com/feed/", "https://www.inside.com.tw/feed/rss", "https://feeds.feedburner.com/rsscna/finance"]
@@ -40,27 +45,31 @@ def get_body_text(article_link : str, rss_entry, title : str) -> str:
             text = html_scraper.find_text_by_name(article_link, "article")
             if text is None:
                 text = rss_entry.description
+                logging.error(f"No body text found for {title} article, RSS desc used. Link: {article_link}")
 
         case "鉅亨網 (Anue)":
             text = html_scraper.find_text_by_id(article_link, "article-container")
             if text is None:
                 text = rss_entry.description
+                logging.error(f"No body text found for {title} article, RSS desc used. Link: {article_link}")
         
         case "Inside (科技媒體)":
             text = html_scraper.find_text_by_id(article_link, "article_content")
             if text is None:
                 text = rss_entry.description
+                logging.error(f"No body text found for {title} article, RSS desc used. Link: {article_link}")
 
         case "中央社財經 (CNA)":
             text = html_scraper.find_text_by_class(article_link, "centralContent")
             if text is None:
                 text = rss_entry.description
+                logging.error(f"No body text found for {title} article, RSS desc used. Link: {article_link}")
     
     return text
 
 # fetches articles from one source
 def fetch(collection, url : str, title : str, start_index : int) -> None:
-
+    start = time.perf_counter()
     global counter # counts the number of articles fetched
     id = start_index + counter
     NewsFeed = feedparser.parse(url) # parses the RSS of the url
@@ -84,6 +93,7 @@ def fetch(collection, url : str, title : str, start_index : int) -> None:
 
             # skips the article if body text could not be found
             if text is None:
+                logging.error(f"No body text found for {title} article, article skipped. Link: {article_link}")
                 continue
 
             article_keywords = []
@@ -102,6 +112,7 @@ def fetch(collection, url : str, title : str, start_index : int) -> None:
             
             # skips the article if no keywords are found
             if keyword_found == False:
+                logging.info(f"No keywords found, article skipped. Link: {article_link}")
                 continue
             
             data = {
@@ -115,15 +126,20 @@ def fetch(collection, url : str, title : str, start_index : int) -> None:
             }
 
             docs_to_save.append(data)
-            # stores the article
-            #collection.insert_one(data)
             counter += 1
             id += 1
             print(article_title + " from " + title + " done")
 
     # stores the articles into the database
     if len(docs_to_save) != 0:
-        collection.insert_many(docs_to_save)
+        try:
+            collection.insert_many(docs_to_save)
+        except Exception as e:
+            logging.error(f"Upload to MongoDB failed. Error msg: {e}")
+    
+    end = time.perf_counter()
+    total_time = end - start
+    logging.info(f"Time taken to fetch {len(docs_to_save)} from {title}: {total_time}")
 
 # fetches 350 articles
 def daily_fetch() -> None:
@@ -192,9 +208,7 @@ def daily_fetch() -> None:
     client.close() # closes MongoClient
 
     end = time.perf_counter()
-    print(f"start: {start}")
-    print(f"end: {end}")
-    print(f"total time taken: {end - start}")
+    logging.info(f"total time taken: {end - start}")
 
 print("fetching")
 daily_fetch()

@@ -6,6 +6,13 @@ import asyncio
 from openai import OpenAI, APITimeoutError, APIConnectionError, AsyncOpenAI
 import json
 import time
+import logging
+
+logging.basicConfig(
+    filename = "sentiment.log", 
+    level = logging.INFO, 
+    format = "%(asctime)s - %(levelname)s - %(message)s"
+)
 
 event_type_list : list[str] = [
     "earnings",
@@ -112,6 +119,7 @@ headline_content_prompt : str = """Return the headline and content in the follow
 News headline: {{title}}
 News content: {{content}}"""
 
+# not called, func for getting OpenAI response one at a time (much slower)
 def get_response(client : OpenAI, system_prompt, content) -> str:
     num_tries = 0
     while num_tries < 3:
@@ -126,10 +134,10 @@ def get_response(client : OpenAI, system_prompt, content) -> str:
                 )
             break
         except APITimeoutError as timeout:
-            print(f"openai timed out: {timeout}")
+            logging.error(f"openai timed out: {timeout}")
             num_tries += 1
         except APIConnectionError as connection_error:
-            print(f"openai had a connection error: {connection_error}")
+            logging.error(f"openai had a connection error: {connection_error}")
             num_tries += 1
     
     response = main_response.choices[0].message.content
@@ -137,6 +145,7 @@ def get_response(client : OpenAI, system_prompt, content) -> str:
     parsed_response = json.loads(response)
     return parsed_response
 
+# not called, function for sending OpenAI prompts one at a time (much slower)
 def analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int) -> None:
     documents = article_collection.find({})
     with OpenAI(timeout = 20.0) as AI_client:
@@ -183,6 +192,7 @@ def analyze(article_collection, sentiment_collection, entity_collection, confide
     # closes cursor
     documents.close()
 
+# async func to get OpenAI response
 async def get_async_response(semaphore, client, system_prompt, content) -> str:
     print("get async response called")
     async with semaphore:
@@ -194,13 +204,12 @@ async def get_async_response(semaphore, client, system_prompt, content) -> str:
                             {"role": "user", "content": content},
                         ],
                         response_format = {"type": "json_object"},
-                        #max_completion_tokens = 32768,
                         timeout = 120.0
                     )
             print(response.choices[0].message.content)
             return response.choices[0].message.content
         except Exception as e:
-            print(f"error getting openai response: {e}")
+            logging.error(f"error getting openai response: {e}")
             return None
 
 async def async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
@@ -231,18 +240,32 @@ async def async_analyze(article_collection, sentiment_collection, entity_collect
     entity_responses = parsed_results[2::3]
 
     for index, (sentiment, confidence, entities) in enumerate(zip(sentiment_responses, confidence_responses, entity_responses)):
+        print(start_index)
         sentiment["confidence"] = confidence["confidence_score"]
         sentiment["id"] = index + start_index
         confidence["id"] = index + start_index
         entities["id"] = index + start_index
 
     print("inserting results")
-    sentiment_collection.insert_many(sentiment_responses)
-    confidence_collection.insert_many(confidence_responses)
-    entity_collection.insert_many(entity_responses)
+    try:
+        sentiment_collection.insert_many(sentiment_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting sentiment responses to MongoDB: {e}")
+    try:
+        confidence_collection.insert_many(confidence_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting confidence responses to MongoDB: {e}")
+    try:
+        entity_collection.insert_many(entity_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting entity responses to MongoDB: {e}")
 
+# starts running OpenAI prompts
 def start_async(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
+    start = time.perf_counter()
     asyncio.run(async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index))
+    end = time.perf_counter()
+    logging.info(f"Total time taken for sentiment analysis: {end - start}")
         
 
 if __name__ == "__main__":

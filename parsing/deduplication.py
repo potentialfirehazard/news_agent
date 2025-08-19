@@ -11,6 +11,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 import string
 #print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
+import logging
+import time
+
+logging.basicConfig(
+    filename = "deduplication.log", 
+    level = logging.INFO, 
+    format = "%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # removes punctuation and formatting text from a document
 def clean(document : str) -> str:
@@ -21,6 +29,8 @@ def clean(document : str) -> str:
 
 # removes all documents considered duplicates from the MongoDB database w/ td-idf logic
 def tfidf_comparison(collection, threshold : int) -> None:
+    start = time.perf_counter()
+    
     vectorizer = TfidfVectorizer() # creates a vectorizer for the document
     
     # gets all the documents from the database
@@ -65,12 +75,13 @@ def tfidf_comparison(collection, threshold : int) -> None:
             
         # removes one of the duplicates so one instance of the article is preserved
         if counter > 0:
-            print(len(duplicate_article_ids) - counter)
             duplicate_article_ids.pop((len(duplicate_article_ids) - counter))
 
     # deletes every id marked to be deleted
     for id in duplicate_article_ids:
 
+        article = collection.find_one({"_id" : id})
+        logging.info(f"deleting article {article["title"]}")
         collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
@@ -78,14 +89,18 @@ def tfidf_comparison(collection, threshold : int) -> None:
     index = 0
     documents = collection.find()
     for doc in documents:
-        collection.update_one({"_id" : doc["_id"]}, {"$set": {"id": "index"}})
+        collection.update_one({"_id" : doc["_id"]}, {"$set": {"id": index}})
         index += 1
 
     # closes cursor
     documents.close()
+    end = time.perf_counter()
+    logging.info(f"Time taken for TFIDF deduplication: {end - start}")
 
 # removes all documents considered duplicates with sbert
 def sbert_comparison(collection, threshold : int) -> None:
+    start = time.perf_counter()
+
     vectorizer = SentenceTransformer("all-MiniLM-L6-v2") # creates a vectorizer for the document
     
     # gets all the documents from the database
@@ -151,6 +166,8 @@ def sbert_comparison(collection, threshold : int) -> None:
     
     # closes cursor
     documents.close()
+    end = time.perf_counter()
+    logging.info(f"Time taken for SBERT deduplication: {end - start}")
 
 if __name__ == "__main__":
     import os
