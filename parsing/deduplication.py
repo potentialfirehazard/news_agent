@@ -3,13 +3,9 @@ one for SBERT vectorization, and ultimately cosine similarity is used to determi
 similarity threshold will be deleted.
 """
 
-#print("importing vectorizer")
 from sklearn.feature_extraction.text import TfidfVectorizer
-#print("importing cosine similarity")
 from sklearn.metrics.pairwise import cosine_similarity
-#print("importing string")
 import string
-#print("importing sentence transformers")
 from sentence_transformers import SentenceTransformer
 import logging
 import time
@@ -73,7 +69,7 @@ def tfidf_comparison(collection, threshold : int) -> None:
                 duplicate_article_ids.append(duplicate_id)
                 counter += 1
             
-        # removes one of the duplicates so one instance of the article is preserved
+        # removes one of the duplicates marked for deletion so the first instance of the article is preserved
         if counter > 0:
             duplicate_article_ids.pop((len(duplicate_article_ids) - counter))
 

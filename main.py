@@ -9,12 +9,10 @@ import schedule # for scheduling fetches 3 times daily
 import pytz # for timezones
 import time # to sleep the program when not running
 import csv # for parsing the keyword filter set
-from parsing import html_scraper # getting the script for the HTML scraper for the PTT stock board
-print("importing sentiment_analysis")
-from parsing import sentiment_analysis
-print("importing deduplication")
-from parsing import deduplication
-import os
+from parsing import html_scraper # getting module for the HTML scraper for the PTT stock board
+from parsing import sentiment_analysis # getting module for OpenAI analysis
+from parsing import deduplication # getting module for deduplication
+import os # for my environmental variables, not ultimately needed
 import logging
 
 logging.basicConfig(
@@ -188,7 +186,7 @@ def daily_fetch() -> None:
     # runs deduplication logic using tfidf
     deduplication.tfidf_comparison(article_collection, 1)
 
-    # creates a collection w/ the desired name for the sentiment analysis info, unless one already exists
+    # creates collections for sentiment info, entity match results, and confidence score details, unless they already exist
     try:
         database.create_collection("sentiment_info")
         database.create_collection("entity_match_results")

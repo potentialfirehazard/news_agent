@@ -1,5 +1,5 @@
 """This program feeds the fetched information into OpenAI and provides the sentiment analysis
-output for each article
+output for each article. Uses asyncio to run prompts concurrently.
 """
 
 import asyncio
@@ -119,6 +119,85 @@ headline_content_prompt : str = """Return the headline and content in the follow
 News headline: {{title}}
 News content: {{content}}"""
 
+
+# async func to get OpenAI response
+async def get_async_response(semaphore, client, system_prompt, content) -> str:
+    async with semaphore:
+        try:
+            response =  await client.chat.completions.create(
+                        model = "gpt-4.1-nano",
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": content},
+                        ],
+                        response_format = {"type": "json_object"},
+                        timeout = 120.0
+                    )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error(f"error getting openai response: {e}")
+            return None
+
+# runs OpenAI prompts for documents concurrently to speed up the process
+async def async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
+    prompts = [] # holds each article's 3 unique prompts
+    documents = article_collection.find({})
+    semaphore = asyncio.Semaphore(10) # sets to max 10 concurrent runs
+    client = AsyncOpenAI()
+
+    # creates a list of each document's 3 unique prompts
+    for doc in documents[start_index:]:
+        headline = doc["title"]
+        content = doc["body"]
+        content_prompt_sentiment = f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}"
+        system_prompt_2 = f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}"
+        prompts.extend([[system_prompt, content_prompt_sentiment], [system_prompt_2, confidence_prompt], [system_prompt_2, entities_prompt]])
+
+
+    # calls get_async_response to create the task for each article
+    tasks = [get_async_response(semaphore, client, prompt[0], prompt[1]) for prompt in prompts]
+    
+    # runs the tasks
+    results = await asyncio.gather(*tasks)
+
+    # parses each result into python format
+    parsed_results = [json.loads(result) for result in results]
+    
+    # splits the results into their category
+    sentiment_responses = parsed_results[0::3]
+    confidence_responses = parsed_results[1::3]
+    entity_responses = parsed_results[2::3]
+
+    for index, (sentiment, confidence, entities) in enumerate(zip(sentiment_responses, confidence_responses, entity_responses)):
+        print(start_index)
+        # switches the confidence score from sentiment analysis to the more in depth confidence score from the confidence prompt
+        sentiment["confidence"] = confidence["confidence_score"] 
+        # matches all 3 ids
+        sentiment["id"] = index + start_index
+        confidence["id"] = index + start_index
+        entities["id"] = index + start_index
+
+    # inserts the responses to MongoDB
+    try:
+        sentiment_collection.insert_many(sentiment_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting sentiment responses to MongoDB: {e}")
+    try:
+        confidence_collection.insert_many(confidence_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting confidence responses to MongoDB: {e}")
+    try:
+        entity_collection.insert_many(entity_responses)
+    except Exception as e:
+        logging.error(f"Error occured inserting entity responses to MongoDB: {e}")
+
+# starts running OpenAI prompts
+def start_async(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
+    start = time.perf_counter()
+    asyncio.run(async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index))
+    end = time.perf_counter()
+    logging.info(f"Total time taken for sentiment analysis: {end - start}")
+
 # not called, func for getting OpenAI response one at a time (much slower)
 def get_response(client : OpenAI, system_prompt, content) -> str:
     num_tries = 0
@@ -190,83 +269,7 @@ def analyze(article_collection, sentiment_collection, entity_collection, confide
         confidence_collection.insert_many(confidence_docs)
 
     # closes cursor
-    documents.close()
-
-# async func to get OpenAI response
-async def get_async_response(semaphore, client, system_prompt, content) -> str:
-    print("get async response called")
-    async with semaphore:
-        try:
-            response =  await client.chat.completions.create(
-                        model = "gpt-4.1-nano",
-                        messages = [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": content},
-                        ],
-                        response_format = {"type": "json_object"},
-                        timeout = 120.0
-                    )
-            print(response.choices[0].message.content)
-            return response.choices[0].message.content
-        except Exception as e:
-            logging.error(f"error getting openai response: {e}")
-            return None
-
-async def async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
-    prompts = []
-    documents = article_collection.find({})
-    semaphore = asyncio.Semaphore(10)
-    client = AsyncOpenAI()
-
-    for doc in documents[start_index:]:
-        headline = doc["title"]
-        content = doc["body"]
-        content_prompt_sentiment = f"Give me the output for an article using the language of the article, for which the headline is: {headline}, and the content is: {content}"
-        system_prompt_2 = f"You are a financial news analyst analyzing an article. The headline is {headline}, and the content is: {content}"
-        prompts.extend([[system_prompt, content_prompt_sentiment], [system_prompt_2, confidence_prompt], [system_prompt_2, entities_prompt]])
-        
-    print("creating tasks")
-    tasks = [get_async_response(semaphore, client, prompt[0], prompt[1]) for prompt in prompts]
-    print("getting results")
-    
-    print("awaiting")
-    results = await asyncio.gather(*tasks)
-
-    print("parsing results")
-    parsed_results = [json.loads(result) for result in results]
-    
-    sentiment_responses = parsed_results[0::3]
-    confidence_responses = parsed_results[1::3]
-    entity_responses = parsed_results[2::3]
-
-    for index, (sentiment, confidence, entities) in enumerate(zip(sentiment_responses, confidence_responses, entity_responses)):
-        print(start_index)
-        sentiment["confidence"] = confidence["confidence_score"]
-        sentiment["id"] = index + start_index
-        confidence["id"] = index + start_index
-        entities["id"] = index + start_index
-
-    print("inserting results")
-    try:
-        sentiment_collection.insert_many(sentiment_responses)
-    except Exception as e:
-        logging.error(f"Error occured inserting sentiment responses to MongoDB: {e}")
-    try:
-        confidence_collection.insert_many(confidence_responses)
-    except Exception as e:
-        logging.error(f"Error occured inserting confidence responses to MongoDB: {e}")
-    try:
-        entity_collection.insert_many(entity_responses)
-    except Exception as e:
-        logging.error(f"Error occured inserting entity responses to MongoDB: {e}")
-
-# starts running OpenAI prompts
-def start_async(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index : int):
-    start = time.perf_counter()
-    asyncio.run(async_analyze(article_collection, sentiment_collection, entity_collection, confidence_collection, start_index))
-    end = time.perf_counter()
-    logging.info(f"Total time taken for sentiment analysis: {end - start}")
-        
+    documents.close()     
 
 if __name__ == "__main__":
     import os

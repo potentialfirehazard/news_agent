@@ -1,6 +1,7 @@
 """This program is an HTML web scraper that obtains title, source, body, url, timestamp, and keywords from articles from
 the PTT Stock Board. THe data obtained is uploaded to MongoDB. This program is specific to the PTT Stock Board, and cannot
-be used for other websites due to different HTML structures.
+be used for other websites due to different HTML structures. Also contains basic functions for html web scraping to find
+text in <p> tags within other tags.
 """
 
 from bs4 import BeautifulSoup # for HTML parsing
@@ -96,6 +97,7 @@ def find_text_by_class(article_link : str, class_name : str) -> str:
     return text
 
 # gets the body text of a PTT Stock Board Post
+# WARNING: Specifically customized to PTT Stock Board's html, so if the html structure changes this will stop working
 def get_PTT_body_text(soup : BeautifulSoup) -> str:
 
     article = soup.find_all(class_ = "article-metaline") # uses article-metaline tags as starting point for body text
@@ -238,6 +240,7 @@ def PTT_fetch(collection, number : int, start_index : int) -> None:
             if button_found == False:
                 logging.error(f"上頁 button not found on PTT Stock Board. Check if html has changed.")
     
+    # inserts docs to MongoDB
     try:
         collection.insert_many(docs_to_save)
     except Exception as e:
