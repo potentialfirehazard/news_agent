@@ -11,6 +11,9 @@ import csv # to parse the keyword filter set
 from pymongo import MongoClient # to upload to MongoDB
 import logging
 import time
+import os
+import pytz
+from datetime import datetime
 
 logging.basicConfig(
     filename = "html.log", 
@@ -33,6 +36,7 @@ def get_article(url : str) -> BeautifulSoup:
 
     return BeautifulSoup(html_content, "lxml")
 
+# finds text in <p> tags under the tag with a certain name
 def find_text_by_name(article_link : str, name : str) -> str:
     text = ""
     soup = get_article(article_link)
@@ -54,6 +58,7 @@ def find_text_by_name(article_link : str, name : str) -> str:
     
     return text
 
+# finds the text in <p> tags under a tag with a certain id
 def find_text_by_id(article_link : str, id_name : str) -> str:
     text = ""
     soup = get_article(article_link)
@@ -75,6 +80,7 @@ def find_text_by_id(article_link : str, id_name : str) -> str:
 
     return text
 
+# finds the text in <p> tags under a tag with a certain class
 def find_text_by_class(article_link : str, class_name : str) -> str:
     text = ""
     soup = get_article(article_link)
@@ -145,7 +151,7 @@ def get_PTT_body_text(soup : BeautifulSoup) -> str:
 
 # fetches a specified number of articles from the PTT Stock Board
 # WARNING: Specifically customized to PTT Stock Board's html, so if the html structure changes this will stop working
-def PTT_fetch(collection, number : int, start_index : int) -> None:
+def PTT_fetch(collection, number : int, start_index : int, keywords : set) -> None:
     
     global time
     start = time.perf_counter()
@@ -155,90 +161,117 @@ def PTT_fetch(collection, number : int, start_index : int) -> None:
     index = start_index
     docs_to_save = []
 
-    # opens keyword filter set
-    with open("data\keyword_filter_set_zh.csv", mode = "r", encoding = "utf-8", newline = "") as file:
+    # loops until the number of articles needed is met
+    while cont:
 
-        # loops until the number of articles needed is met
-        while cont:
-
-            # finds all articles on the homepage
+        # finds all articles on the homepage
+        tries = 0
+        while tries < 3:
             content = get_article(url)
-            articles = content.find_all(class_ = "title", limit = 350)
+            articles = content.find_all(class_ = "title", limit = number)
+            if articles is None:
+                tries += 1
+                continue
+            else:
+                break
+        if tries == 3:
+            logging.error("Requests timed out")
+            return None
 
-            # loops for each article on the page
-            for i in articles:
 
-                # finds the tag holding the link and title of each article
-                info = i.find("a")
-                if info is not None:
-                    # parses the article linked
-                    article_link = "https://www.ptt.cc" + info.get("href")
-                    article = get_article(article_link)
-                    
-                    # finds where the body text begins
+        # loops for each article on the page
+        for i in articles:
+
+            # finds the tag holding the link and title of each article
+            info = i.find("a")
+            if info is not None:
+                # parses the article linked
+                article_link = "https://www.ptt.cc" + info.get("href")
+                article = get_article(article_link)
+                title = info.get_text()
+
+                # finds the timestamp
+                skip_article = False
+                try:
                     for i in article.find_all(class_ = "article-metaline"):
                         if i.find(class_ = "article-meta-tag").get_text() == "時間":
-                            timestamp = i.find(class_ = "article-meta-value").get_text()
-                    
-                    # finds body text
-                    text = get_PTT_body_text(article)
-                    if text is None:
-                        logging.error(f"Body text could not be found for an article from PTT Stock Board. Link: {article_link}")
-                        continue
+                            timestamp_string = i.find(class_ = "article-meta-value").get_text()
+                            format = f"%a %b %d %H:%M:%S %Y"
+                            try:
+                                datetime_object = datetime.strptime(timestamp_string, format)
+                            except Exception as e:
+                                logging.error(f"Error converting {title} article to datetime object: {e}")
+                                skip_article = True
+                                break
+        
+                            # changes the datetime object to UTC+8 timezone (uses localize b/c PTT does not include time zone)
+                            tw_timezone = pytz.timezone("Etc/GMT-8")
+                            converted_dt = tw_timezone.localize(datetime_object)
+                except Exception as e:
+                    logging.error(f"Could not find timestamp for PTT post: {e}")
+                    continue
+                
+                if skip_article:
+                    continue
 
-                    article_keywords = []
-                    
-                    # loops through the keyword filter list
-                    file.seek(0)
-                    csv_reader = csv.reader(file)
-                    for row in csv_reader:
-                        if row: # check if the row isn't empty
-                            keyword = row[0]
-                            if keyword in text or keyword in info.get_text(): # adds the keyword to the list if it is found
-                                article_keywords.append(keyword)
-                    
-                    # skips the article if no keywords are found
-                    if len(article_keywords) == 0:
-                        logging.info(f"No keywords found for this PTT Stock Board article. Link: {article_link}")
-                        continue
+                # finds body text
+                text = get_PTT_body_text(article)
+                if text is None:
+                    logging.error(f"Body text could not be found for an article from PTT Stock Board. Link: {article_link}")
+                    continue
 
-                    # creates the file to be stored
-                    data = {
-                        "id" : index,
-                        "title" : info.get_text(),
-                        "source" : "PTT Stock Board",
-                        "body" : text,
-                        "url" : article_link,
-                        "timestamp" : timestamp,
-                        "keywords" : article_keywords
-                    }
+                article_keywords = []
+                
+                # loops through the keyword filter list
+                # loops through the keyword filter set
+                keyword_found = False
+                for keyword in keywords:
+                    if keyword in title or keyword in text:
+                        keyword_found = True
+                        article_keywords.append(keyword)
+                
+                # skips the article if no keywords are found
+                if keyword_found == False:
+                    logging.info(f"No keywords found for this PTT Stock Board article. Link: {article_link}")
+                    continue
 
-                    # saves the file to a list
-                    docs_to_save.append(data)
-                    counter += 1
-                    index += 1
-                    
-                    # stops fetching if the number of articles needed is reached
-                    if counter >= number:
-                        cont = False
-                        break
+                # creates the file to be stored
+                data = {
+                    "id" : index,
+                    "title" : title,
+                    "source" : "PTT Stock Board",
+                    "body" : text,
+                    "url" : article_link,
+                    "timestamp" : converted_dt,
+                    "keywords" : article_keywords
+                }
 
-            # finds all the buttons for navigating the page
-            buttons = get_article(url).find_all(class_ = "btn wide")
-            
-            if len(buttons) == 0:
-                logging.error(f"No buttons found on PTT Stock Board. Check if html has changed.")
-                break
-            
-            # finds the button to go to the next page and sets the link for parsing to the next page
-            button_found = False
-            for i in buttons:
-                    if i.get_text() == "‹ 上頁":
-                        url = "https://www.ptt.cc" + i.get("href")
-                        button_found = True
-            
-            if button_found == False:
-                logging.error(f"上頁 button not found on PTT Stock Board. Check if html has changed.")
+                # saves the file to a list
+                docs_to_save.append(data)
+                counter += 1
+                index += 1
+                
+                # stops fetching if the number of articles needed is reached
+                if counter >= number:
+                    cont = False
+                    break
+
+        # finds all the buttons for navigating the page
+        buttons = get_article(url).find_all(class_ = "btn wide")
+        
+        if len(buttons) == 0:
+            logging.error(f"No buttons found on PTT Stock Board. Check if html has changed.")
+            break
+        
+        # finds the button to go to the next page and sets the link for parsing to the next page
+        button_found = False
+        for i in buttons:
+                if i.get_text() == "‹ 上頁":
+                    url = "https://www.ptt.cc" + i.get("href")
+                    button_found = True
+        
+        if button_found == False:
+            logging.error(f"上頁 button not found on PTT Stock Board. Check if html has changed.")
     
     # inserts docs to MongoDB
     try:
@@ -263,4 +296,4 @@ if __name__ == "__main__":
         print(f"Error creating collection: {e}")
     article_collection = database["article_info"]
 
-    PTT_fetch(article_collection, 15, 0)
+    PTT_fetch(article_collection, 15, 217)

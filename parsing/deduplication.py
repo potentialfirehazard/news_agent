@@ -73,21 +73,27 @@ def tfidf_comparison(collection, threshold : int) -> None:
         if counter > 0:
             duplicate_article_ids.pop((len(duplicate_article_ids) - counter))
 
+    deleted_counter_ids = []
     # deletes every id marked to be deleted
     for id in duplicate_article_ids:
 
         article = collection.find_one({"_id" : id})
+        deleted_counter_ids.append(article["id"])
         title = article["title"]
         logging.info(f"deleting article {title}")
         collection.delete_one({"_id" : id})
         print("deleting duplicate " + str(id))
     
     # resets ids for the new number of documents
-    index = 0
-    documents = collection.find()
+    start = time.perf_counter()
+    index = deleted_counter_ids[0]
+    all_documents = collection.find()
+    documents = all_documents[index:]
     for doc in documents:
         collection.update_one({"_id" : doc["_id"]}, {"$set": {"id": index}})
         index += 1
+    end = time.perf_counter()
+    logging.info(f"Time taken redoing indexes in deduplication: {end - start} seconds")
 
     # closes cursor
     documents.close()
