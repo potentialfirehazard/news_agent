@@ -7,8 +7,6 @@ text in <p> tags within other tags.
 from bs4 import BeautifulSoup # for HTML parsing
 import bs4 # for HTML parsing
 import requests # to get the HTML of websites
-import csv # to parse the keyword filter set
-from pymongo import MongoClient # to upload to MongoDB
 import logging
 import time
 import os
@@ -285,6 +283,7 @@ def PTT_fetch(collection, number : int, start_index : int, keywords : set) -> No
 if __name__ == "__main__":
     import os
     from pymongo import MongoClient # for uploading data to MongoDB
+    import csv # to parse the keyword filter set
 
     connection_string : str = os.getenv("MONGODB_CONNECTION_STRING")
     database_name : str = "news_info" # replace with wanted database name
@@ -296,4 +295,12 @@ if __name__ == "__main__":
         print(f"Error creating collection: {e}")
     article_collection = database["article_info"]
 
-    PTT_fetch(article_collection, 15, 217)
+    # creates a set of keywords
+    keywords = set()
+    keyword_file_path = os.path.join("data", "keyword_filter_set_zh.csv")
+    with open(keyword_file_path, mode = "r", encoding = "utf-8", newline = "") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            keywords.add(row["Keyword"])
+
+    PTT_fetch(article_collection, 15, 217, keywords)
