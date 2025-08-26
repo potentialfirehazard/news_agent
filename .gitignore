@@ -5,3 +5,6 @@
 /my_venv
 /.env
 /test.py
+/docker-compose.override.yml
+/docker-compose.yml
+/.dockerignore

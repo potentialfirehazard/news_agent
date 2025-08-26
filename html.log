@@ -22119,3 +22119,6 @@ Stacktrace:
 2025-08-26 13:30:11,821 - ERROR - Link for current article already exists in database, skipping. Link: https://news.cnyes.com/news/id/6127001
 2025-08-26 13:30:12,030 - ERROR - Link for current article already exists in database, skipping. Link: https://news.cnyes.com/news/id/6127133
 2025-08-26 13:30:12,244 - ERROR - Link for current article already exists in database, skipping. Link: https://news.cnyes.com/news/id/6127132
+2025-08-26 13:53:06,028 - INFO - FakeTensor cache stats:
+2025-08-26 13:53:06,030 - INFO -   cache_hits: 0
+2025-08-26 13:53:06,033 - INFO -   cache_misses: 0
