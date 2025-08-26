@@ -17,7 +17,8 @@ import os # for my environmental variables, not ultimately needed
 import logging
 
 logging.basicConfig(
-    filename = "main.log", 
+    filename = "main.log",
+    encoding = "utf-8", 
     level = logging.INFO, 
     format = "%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -206,6 +207,17 @@ def daily_fetch() -> None:
         reader = csv.DictReader(file)
         for row in reader:
             keywords.add(row["Keyword"])
+    
+    # creates a set of stock names
+    stock_names = set()
+    stock_file_path = os.path.join("data", "TW_stock_list.csv")
+    with open(stock_file_path, mode = "r", encoding = "utf-8", newline = "") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            stock_names.add(row["Cleaned company names"])
+    
+    # adds stock names to the list of keywords searched
+    keywords.update(stock_names)
 
     start = time.perf_counter()
 
@@ -277,9 +289,9 @@ def daily_fetch() -> None:
 
 daily_fetch()
 # schedules the daily fetch for the three times each day, in Taiwan's time zone
-schedule.every().day.at("07:30", "Asia/Hong_Kong").do(daily_fetch)
-schedule.every().day.at("13:30", "Asia/Hong_Kong").do(daily_fetch)
-schedule.every().day.at("18:00", "Asia/Hong_Kong").do(daily_fetch)
+schedule.every().day.at("07:30", "Etc/GMT-8").do(daily_fetch)
+schedule.every().day.at("13:30", "Etc/GMT-8").do(daily_fetch)
+schedule.every().day.at("18:00", "Etc/GMT-8").do(daily_fetch)
 
 # pauses the program while waiting for the scheduled fetches
 while True:

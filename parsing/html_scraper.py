@@ -1,7 +1,8 @@
 """This program is an HTML web scraper that obtains title, source, body, url, timestamp, and keywords from articles from
 the PTT Stock Board. THe data obtained is uploaded to MongoDB. This program is specific to the PTT Stock Board, and cannot
 be used for other websites due to different HTML structures. Also contains basic functions for html web scraping to find
-text in <p> tags within other tags.
+text in <p> tags within other tags. Also contains a scraper for cmoney, but it has not been thoroughly tested yet so it is not
+currently implemented in main.
 """
 
 from bs4 import BeautifulSoup # for HTML parsing
@@ -12,9 +13,15 @@ import time
 import os
 import pytz
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from newspaper import Article
+from langdetect import detect
+import math
 
 logging.basicConfig(
     filename = "html.log", 
+    encoding = "utf-8", 
     level = logging.INFO, 
     format = "%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -220,7 +227,6 @@ def PTT_fetch(collection, number : int, start_index : int, keywords : set) -> No
 
                 article_keywords = []
                 
-                # loops through the keyword filter list
                 # loops through the keyword filter set
                 keyword_found = False
                 for keyword in keywords:
@@ -280,6 +286,134 @@ def PTT_fetch(collection, number : int, start_index : int, keywords : set) -> No
     end = time.perf_counter()
     logging.info(f"Time taken to scrape {len(docs_to_save)} articles from PTT Stock Board: {end - start}")
 
+# scrapes a set amount of articles from cmoney w/ Selenium
+def cmoney_scraper(collection, number : int, start_index : int, keywords : set):
+    global time
+    start = time.perf_counter()
+    counter = 0 # counts the number of articles fetched
+    url = "https://www.cmoney.tw/forum/popular/buzz?tab=news"
+    cont = True
+    index = start_index
+    docs_to_save = []
+    options = webdriver.ChromeOptions()
+    options.add_argument("--disable-notifications")
+
+    driver = webdriver.Chrome(options) 
+    driver.get(url)
+    time.sleep(5) # allows page to load
+
+    # get rid of popup if it is detected
+    print("finding popup")
+    try:
+        popup_container = driver.find_element(By.ID, "qgraphFakePromptContainer")
+        button = popup_container.find_element(By.CLASS_NAME, "aiq-MLWa4b")
+        button.click()
+    except:
+        logging.info("no popup detected.")
+    
+    # loads as many articles as needed by scrolling to the end of the page
+    num_loads = math.ceil(number / 10) + 2 # adds 2 scrolls for a buffer if articles are skipped
+    print(num_loads)
+    for i in range(num_loads):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+
+    # loops until the number of articles needed is met
+    while cont:
+        
+        # finds each article container
+        soup = BeautifulSoup(driver.page_source, "lxml")
+        container = soup.find(class_ = "page__list")
+        articles = container.find_all("section")
+
+        # loops through every article on the page
+        for article in articles:
+            # makes sure the "article" is actually an article and not an ad or something else
+            element_classes = article["class"]
+            if element_classes[0] != "page__section":
+                continue
+            
+            # finds the source and cleans the text
+            source_container_tag = article.find(class_ = "articleContentOfficial__headLine")
+            a_tag = source_container_tag.find("a")
+            source_tag = a_tag.find("div")
+            source = source_tag.get_text()
+            source = source.strip()
+
+            # finds the link
+            link_tag = article.find("a")
+            article_link = link_tag.get("href")
+
+            # finds the title and cleans the text
+            title_tag = article.find("h3")
+            title = title_tag.get_text()
+            title = title.strip()
+            
+            # detects the language
+            detected_language = detect(title)
+            # defaults to chinese if detected language is not en, b/c langdetect kept detecting korean/vietnamese instead
+            if detected_language != "en":
+                detected_language = "zh"
+
+            # creates an article object for the article
+            expanded_article = Article(article_link, language = detected_language)
+            try:
+                expanded_article.download()
+                expanded_article.parse()
+            except Exception as e:
+                print(f"download failed for link: {article_link}. Message: {e}")
+                logging.error(f"download failed for link: {article_link}. Message: {e}")
+                continue
+            
+            # gets the body text of the article
+            text = expanded_article.text
+            
+            # loops through the keyword filter set
+            article_keywords = []
+            keyword_found = False
+            for keyword in keywords:
+                if keyword in title or keyword in text:
+                    keyword_found = True
+                    article_keywords.append(keyword)
+
+            # skips the article if no keywords are found
+            if keyword_found == False:
+                logging.info(f"No keywords found for this 股市同學會 post. Title: {title}")
+                continue
+            
+            # gets the timestamp of the article
+            timestamp = expanded_article.publish_date
+        
+            # creates the file to be stored
+            data = {
+                "id" : index,
+                "title" : title,
+                "source" : source,
+                "body" : text,
+                "url" : article_link,
+                "timestamp" : timestamp,
+                "keywords" : article_keywords
+            }
+
+            # saves the file to a list
+            docs_to_save.append(data)
+            counter += 1
+            index += 1
+            print(f"{title} done")
+            # stops fetching if the number of articles needed is reached
+            if counter >= number:
+                cont = False
+                break
+
+    # inserts docs to MongoDB
+    try:
+        collection.insert_many(docs_to_save)
+    except Exception as e:
+        logging.error(f"股市同學會 docs failed to upload to MongoDB: {e}")
+    
+    end = time.perf_counter()
+    logging.info(f"Time taken to scrape {len(docs_to_save)} articles from 股市同學會: {end - start}")
+
 if __name__ == "__main__":
     import os
     from pymongo import MongoClient # for uploading data to MongoDB
@@ -302,5 +436,17 @@ if __name__ == "__main__":
         reader = csv.DictReader(file)
         for row in reader:
             keywords.add(row["Keyword"])
+    
+    # creates a set of stock names
+    stock_names = set()
+    stock_file_path = os.path.join("data", "TW_stock_list.csv")
+    with open(stock_file_path, mode = "r", encoding = "utf-8", newline = "") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            stock_names.add(row["Cleaned company names"])
+    
+    # adds stock names to the list of keywords searched
+    keywords.update(stock_names)
 
-    PTT_fetch(article_collection, 15, 217, keywords)
+    cmoney_scraper(article_collection, 31, 0, keywords)
+    PTT_fetch(article_collection, 15, 31, keywords)
